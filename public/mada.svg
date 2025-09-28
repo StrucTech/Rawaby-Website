@@ -1,0 +1,5 @@
+<!-- Placeholder SVG for Mada -->
+<svg width="60" height="40" xmlns="http://www.w3.org/2000/svg">
+  <rect width="60" height="40" rx="4" fill="#00a651"/>
+  <text x="30" y="25" text-anchor="middle" fill="white" font-size="10" font-family="Arial">مدى</text>
+</svg>
