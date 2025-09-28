@@ -39,35 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Custom project files
-_archived_dev_files/
-*backup*
-*.sql
-*.docx
-temp-*
-test-*
-نموذج*.docx
-عقد_*.docx
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-Thumbs.db
-
-# Logs
-logs
-*.log
-
-# Database
-database/
-*.db
-*.sqlite
-
-# Certificates
-*.p12
-*.key
