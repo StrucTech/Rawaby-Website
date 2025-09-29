@@ -18,6 +18,7 @@ export default function OrderDetailsPage() {
   const [orderData, setOrderData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<DecodedToken | null>(null);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -25,6 +26,15 @@ export default function OrderDetailsPage() {
         const token = Cookies.get('token');
         if (!token) {
           setError('يجب تسجيل الدخول لعرض تفاصيل الطلب');
+          return;
+        }
+
+        // Decode user info
+        try {
+          const decoded = jwtDecode(token) as DecodedToken;
+          setUserInfo(decoded);
+        } catch (error) {
+          setError('رمز المصادقة غير صالح');
           return;
         }
 
@@ -202,7 +212,7 @@ export default function OrderDetailsPage() {
         </div>
 
         {/* Services */}
-        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && (
+        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && userInfo?.role !== 'delegate' && (
           <div className="bg-white rounded-lg shadow-md p-6 mt-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-900">الخدمات المطلوبة</h2>
@@ -239,8 +249,23 @@ export default function OrderDetailsPage() {
           </div>
         )}
 
-        {/* Payment Info */}
-        {orderMetadata.paymentMethod && (
+        {/* Service Info for Delegates - Without Prices */}
+        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && userInfo?.role === 'delegate' && (
+          <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">الخدمة المطلوبة</h2>
+            <div className="space-y-3">
+              {orderMetadata.selectedServices.map((service: any, index: number) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900">{service.title}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{service.description || 'الخدمة المطلوبة للطالب'}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Payment Info - Hidden from Delegates */}
+        {orderMetadata.paymentMethod && userInfo?.role !== 'delegate' && (
           <div className="bg-white rounded-lg shadow-md p-6 mt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">معلومات الدفع</h2>
             <div className="space-y-3">

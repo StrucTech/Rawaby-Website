@@ -125,7 +125,6 @@ export default function DelegateTasksPage() {
             <th className="p-2">اسم ولي الأمر</th>
             <th className="p-2">رقم الهاتف</th>
             <th className="p-2">الخدمات</th>
-            <th className="p-2">المجموع</th>
             <th className="p-2">الحالة</th>
             <th className="p-2">تاريخ التعيين</th>
             <th className="p-2">إجراءات</th>
@@ -133,9 +132,9 @@ export default function DelegateTasksPage() {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={9} className="text-center p-4">جاري التحميل...</td></tr>
+            <tr><td colSpan={8} className="text-center p-4">جاري التحميل...</td></tr>
           ) : tasks.length === 0 ? (
-            <tr><td colSpan={9} className="text-center p-4">لا توجد مهام حالياً</td></tr>
+            <tr><td colSpan={8} className="text-center p-4">لا توجد مهام حالياً</td></tr>
           ) : tasks.map(task => {
             console.log('Individual task:', task);
             // استخدام metadata بدلاً من note
@@ -160,7 +159,6 @@ export default function DelegateTasksPage() {
                     {taskData.serviceName || 'غير محدد'}
                   </div>
                 </td>
-                <td className="p-2 font-semibold">{task.total_price || 0} ريال</td>
                 <td className="p-2">
                   <span className={`px-2 py-1 rounded text-sm ${
                     task.status === 'completed' ? 'bg-green-100 text-green-800' :
