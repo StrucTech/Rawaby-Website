@@ -27,8 +27,11 @@ export async function PATCH(
       );
     }
 
-    // Validate status - استخدام الحالات من الهيكل الجديد
-    const validStatuses = ['new', 'assigned', 'in_progress', 'completed', 'paid', 'cancelled'];
+    // Validate status - استخدام الحالات الجديدة
+    const validStatuses = [
+      'under_review', 'assigned', 'in_progress', 'completed', 
+      'waiting_client', 'waiting_attachments', 'paid', 'cancelled'
+    ];
     if (!validStatuses.includes(status)) {
       console.log('Invalid status received:', status, 'Valid statuses:', validStatuses);
       return new NextResponse(

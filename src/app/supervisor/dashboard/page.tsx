@@ -15,8 +15,20 @@ export default function SupervisorDashboard() {
   const [delegates, setDelegates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const delegateSelectRef = useRef<{ [orderId: string]: HTMLSelectElement | null }>({});
+  const statusSelectRef = useRef<{ [orderId: string]: HTMLSelectElement | null }>({});
   const [supervisorId, setSupervisorId] = useState<string | null>(null);
+
+  // حالات الطلب الجديدة
+  const orderStatuses = [
+    { value: 'under_review', label: 'تحت المراجعة', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'assigned', label: 'تم تعيين المشرف والمندوب', color: 'bg-blue-100 text-blue-800' },
+    { value: 'in_progress', label: 'تحت الإجراء', color: 'bg-purple-100 text-purple-800' },
+    { value: 'completed', label: 'تم الانتهاء', color: 'bg-green-100 text-green-800' },
+    { value: 'waiting_client', label: 'انتظار رد العميل', color: 'bg-orange-100 text-orange-800' },
+    { value: 'waiting_attachments', label: 'انتظار المرفقات', color: 'bg-red-100 text-red-800' },
+  ];
 
   useEffect(() => {
     const token = Cookies.get('token');
@@ -128,6 +140,58 @@ export default function SupervisorDashboard() {
     }
   };
 
+  // تحديث حالة الطلب
+  const handleStatusUpdate = async (orderId: string) => {
+    const newStatus = statusSelectRef.current[orderId]?.value;
+    if (!newStatus || !supervisorId) return;
+
+    setUpdatingStatus(orderId);
+    try {
+      const token = Cookies.get('token');
+      if (!token) return;
+      
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      if (res.ok) {
+        // تحديث الطلب محليًا
+        setOrders(prev => prev.map(order => {
+          if (order.id === orderId) {
+            return { 
+              ...order, 
+              status: newStatus,
+              updated_at: new Date().toISOString()
+            };
+          }
+          return order;
+        }));
+        
+        // إعادة تحميل البيانات للتأكد من التحديث
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        console.error('Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  // الحصول على معلومات الحالة
+  const getStatusInfo = (status: string) => {
+    const statusInfo = orderStatuses.find(s => s.value === status);
+    return statusInfo || { value: status, label: status, color: 'bg-gray-100 text-gray-800' };
+  };
+
   return (
     <div className="max-w-5xl mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
@@ -157,12 +221,13 @@ export default function SupervisorDashboard() {
               <th className="p-2">المندوب المُعيّن</th>
               <th className="p-2">نُفذت بواسطة</th>
               <th className="p-2">تفاصيل</th>
+              <th className="p-2">تحديث الحالة</th>
               <th className="p-2">تعيين لمندوب</th>
             </tr>
           </thead>
           <tbody>
             {orders.length === 0 ? (
-              <tr><td colSpan={7} className="text-center p-4">لا توجد مهام حالياً</td></tr>
+              <tr><td colSpan={8} className="text-center p-4">لا توجد مهام حالياً</td></tr>
             ) : orders.map(order => {
               // استخراج البيانات من الحقول الجديدة والـ metadata
               let guardianName = 'غير محدد';
@@ -192,19 +257,8 @@ export default function SupervisorDashboard() {
                 <td className="p-2">{'طلب رقم ' + order.id.slice(0, 8)}</td>
                 <td className="p-2">{guardianName}</td>
                 <td className="p-2">
-                  <span className={`px-2 py-1 rounded text-sm ${
-                    order.status === 'new' ? 'bg-yellow-100 text-yellow-800' :
-                    order.status === 'assigned' ? 'bg-orange-100 text-orange-800' :
-                    order.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                    order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    order.status === 'paid' ? 'bg-purple-100 text-purple-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {order.status === 'new' ? 'طلب جديد' :
-                     order.status === 'assigned' ? 'تم التعيين' :
-                     order.status === 'in_progress' ? 'قيد التنفيذ' :
-                     order.status === 'completed' ? 'مكتمل' :
-                     order.status === 'paid' ? 'مدفوع' : order.status}
+                  <span className={`px-2 py-1 rounded text-sm ${getStatusInfo(order.status).color}`}>
+                    {getStatusInfo(order.status).label}
                   </span>
                 </td>
                 <td className="p-2">
@@ -232,6 +286,28 @@ export default function SupervisorDashboard() {
                   >
                     عرض التفاصيل
                   </button>
+                </td>
+                <td className="p-2">
+                  <div className="flex gap-2 items-center">
+                    <select 
+                      ref={el => { statusSelectRef.current[order.id] = el; }} 
+                      className="border p-1 rounded text-sm"
+                      defaultValue={order.status}
+                    >
+                      {orderStatuses.map((status) => (
+                        <option key={status.value} value={status.value}>
+                          {status.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button 
+                      className="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 disabled:bg-gray-400 text-sm" 
+                      disabled={updatingStatus === order.id} 
+                      onClick={() => handleStatusUpdate(order.id)}
+                    >
+                      {updatingStatus === order.id ? 'تحديث...' : 'تحديث'}
+                    </button>
+                  </div>
                 </td>
                 <td className="p-2 flex gap-2 items-center">
                   {assignedDelegate ? (
