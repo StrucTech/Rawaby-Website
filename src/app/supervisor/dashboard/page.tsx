@@ -156,12 +156,13 @@ export default function SupervisorDashboard() {
               <th className="p-2">الحالة</th>
               <th className="p-2">المندوب المُعيّن</th>
               <th className="p-2">نُفذت بواسطة</th>
+              <th className="p-2">تفاصيل</th>
               <th className="p-2">تعيين لمندوب</th>
             </tr>
           </thead>
           <tbody>
             {orders.length === 0 ? (
-              <tr><td colSpan={6} className="text-center p-4">لا توجد مهام حالياً</td></tr>
+              <tr><td colSpan={7} className="text-center p-4">لا توجد مهام حالياً</td></tr>
             ) : orders.map(order => {
               // استخراج البيانات من الحقول الجديدة والـ metadata
               let guardianName = 'غير محدد';
@@ -223,6 +224,14 @@ export default function SupervisorDashboard() {
                   ) : (
                     <span className="text-gray-400 text-sm">لم تكتمل</span>
                   )}
+                </td>
+                <td className="p-2">
+                  <button
+                    onClick={() => window.open(`/order-details/${order.id}`, '_blank')}
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm"
+                  >
+                    عرض التفاصيل
+                  </button>
                 </td>
                 <td className="p-2 flex gap-2 items-center">
                   {assignedDelegate ? (

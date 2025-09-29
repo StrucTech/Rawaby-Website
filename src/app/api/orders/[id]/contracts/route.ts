@@ -34,7 +34,7 @@ export async function GET(
     // التحقق من صلاحية الوصول للطلب
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('client_id, assigned_delegate_id, assigned_supervisor_id, delegate_id, supervisor_id')
+      .select('client_id, assigned_delegate_id, assigned_supervisor_id')
       .eq('id', orderId)
       .single();
 
@@ -63,9 +63,9 @@ export async function GET(
     if (payload.role === 'admin') {
       hasAccess = true; // الأدمن يقدر يشوف كل حاجة
     } else if (payload.role === 'supervisor') {
-      hasAccess = (order.assigned_supervisor_id === payload.userId) || (order.supervisor_id === payload.userId);
+      hasAccess = (order.assigned_supervisor_id === payload.userId);
     } else if (payload.role === 'delegate') {
-      hasAccess = (order.assigned_delegate_id === payload.userId) || (order.delegate_id === payload.userId);
+      hasAccess = (order.assigned_delegate_id === payload.userId);
     } else {
       hasAccess = order.client_id === payload.userId; // العميل يشوف طلباته بس
     }

@@ -79,6 +79,32 @@ export async function GET(
           orderDelegateId: order.assigned_delegate_id
         }, { status: 403 });
       }
+    } else if (payload.role === 'supervisor') {
+      // للمشرف: التحقق من التخصيص
+      const isAssigned = order.assigned_supervisor_id === payload.userId;
+      console.log('Supervisor access check:', {
+        userSupervisorId: payload.userId.substring(0, 8),
+        orderSupervisorId: order.assigned_supervisor_id?.substring(0, 8),
+        isAssigned: isAssigned
+      });
+      
+      if (!isAssigned) {
+        return NextResponse.json({ 
+          error: 'Access denied - Not assigned to this order',
+          userSupervisorId: payload.userId,
+          orderSupervisorId: order.assigned_supervisor_id
+        }, { status: 403 });
+      }
+    } else if (payload.role !== 'admin') {
+      // للمستخدمين العاديين: التحقق من الملكية
+      const isOwner = order.client_id === payload.userId;
+      if (!isOwner) {
+        return NextResponse.json({ 
+          error: 'Access denied - Not the order owner',
+          userClientId: payload.userId,
+          orderClientId: order.client_id
+        }, { status: 403 });
+      }
     }
 
     // جلب العقود

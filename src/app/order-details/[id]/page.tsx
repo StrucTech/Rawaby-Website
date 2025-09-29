@@ -212,7 +212,7 @@ export default function OrderDetailsPage() {
         </div>
 
         {/* Services */}
-        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && userInfo?.role !== 'delegate' && (
+        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && userInfo?.role !== 'delegate' && userInfo?.role !== 'supervisor' && (
           <div className="bg-white rounded-lg shadow-md p-6 mt-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-900">الخدمات المطلوبة</h2>
@@ -249,8 +249,8 @@ export default function OrderDetailsPage() {
           </div>
         )}
 
-        {/* Service Info for Delegates - Without Prices */}
-        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && userInfo?.role === 'delegate' && (
+        {/* Service Info for Delegates and Supervisors - Without Prices */}
+        {orderMetadata.selectedServices && orderMetadata.selectedServices.length > 0 && (userInfo?.role === 'delegate' || userInfo?.role === 'supervisor') && (
           <div className="bg-white rounded-lg shadow-md p-6 mt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">الخدمة المطلوبة</h2>
             <div className="space-y-3">
@@ -264,8 +264,8 @@ export default function OrderDetailsPage() {
           </div>
         )}
 
-        {/* Payment Info - Hidden from Delegates */}
-        {orderMetadata.paymentMethod && userInfo?.role !== 'delegate' && (
+        {/* Payment Info - Hidden from Delegates and Supervisors */}
+        {orderMetadata.paymentMethod && userInfo?.role !== 'delegate' && userInfo?.role !== 'supervisor' && (
           <div className="bg-white rounded-lg shadow-md p-6 mt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">معلومات الدفع</h2>
             <div className="space-y-3">
@@ -378,7 +378,7 @@ function ContractsSection({ orderId }: { orderId: string }) {
         const token = Cookies.get('token');
         if (!token) return;
 
-        const response = await fetch(`/api/orders/${orderId}/contracts`, {
+        const response = await fetch(`/api/simple-contracts/${orderId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
