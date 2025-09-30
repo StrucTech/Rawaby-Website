@@ -11,6 +11,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('=== PATCH Request Started ===');
+  console.log('Order ID:', params.id);
+  
   try {
     const body = await request.json();
     const { status, staffId, completedBy } = body;
@@ -18,6 +21,7 @@ export async function PATCH(
     console.log('PATCH request body:', { status, staffId, completedBy });
 
     if (!status) {
+      console.log('No status provided in request');
       return new NextResponse(
         JSON.stringify({ error: 'الرجاء تحديد حالة الطلب' }),
         { 
@@ -45,7 +49,10 @@ export async function PATCH(
 
     // التحقق من الصلاحيات
     const authHeader = request.headers.get('authorization');
+    console.log('Auth header exists:', !!authHeader);
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No valid authorization header');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,28 +61,30 @@ export async function PATCH(
     
     try {
       payload = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+      console.log('Token verified for user:', payload.userId, 'role:', payload.role);
     } catch (error) {
+      console.log('Token verification failed:', error);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     if (payload.role !== 'admin' && payload.role !== 'supervisor') {
+      console.log('Access denied for role:', payload.role);
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Find order in database
+    // Find order in database with simpler query
     console.log('Looking for order with ID:', params.id);
     const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
-      .select(`
-        *,
-        client:users!orders_client_id_fkey(id, name, email),
-        assigned_supervisor:users!orders_assigned_supervisor_id_fkey(id, name, email),
-        assigned_delegate:users!orders_assigned_delegate_id_fkey(id, name, email)
-      `)
+      .select('*')
       .eq('id', params.id)
       .single();
 
-    console.log('Database query result:', { order, fetchError });
+    console.log('Database query result:', { 
+      found: !!order, 
+      error: fetchError?.message,
+      orderId: order?.id?.substring(0, 8) 
+    });
 
     if (fetchError || !order) {
       console.error('Order not found:', fetchError?.message);
@@ -94,16 +103,16 @@ export async function PATCH(
     console.log('Order found in database:', order.id);
 
     // Update order status and delegate assignment using new schema
-    const updateData: any = { status };
+    const updateData: any = { 
+      status,
+      updated_at: new Date().toISOString() // إضافة timestamp للتحديث
+    };
     
-    // Parse existing metadata to preserve other data
+    console.log('Preparing update with status:', status);
+    
+    // Parse existing metadata to preserve other data (only if needed)
     let metadata: any = {};
-    try {
-      metadata = order.metadata ? (typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata) : {};
-    } catch (e) {
-      console.log('Could not parse existing metadata, creating new one');
-    }
-
+    
     // If staffId is provided, assign the order to delegate using new schema
     if (staffId) {
       console.log('Assigning order', params.id, 'to delegate', staffId);
@@ -124,10 +133,16 @@ export async function PATCH(
       updateData.assigned_at = new Date().toISOString();
       updateData.status = 'assigned'; // تحديث الحالة إلى معين
       
-      // حفظ معلومات إضافية في metadata
-      metadata.assignedDelegate = staffId;
-      metadata.assignedSupervisor = payload.userId;
-      metadata.assignedAt = new Date().toISOString();
+      // حفظ معلومات إضافية في metadata فقط إذا كان هناك تعيين
+      try {
+        metadata = order.metadata ? (typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata) : {};
+        metadata.assignedDelegate = staffId;
+        metadata.assignedSupervisor = payload.userId;
+        metadata.assignedAt = new Date().toISOString();
+        updateData.metadata = metadata;
+      } catch (e) {
+        console.log('Could not update metadata, skipping');
+      }
     }
     
     // If completedBy is provided, mark who completed the task
@@ -135,15 +150,20 @@ export async function PATCH(
       console.log('Order', params.id, 'completed by delegate', completedBy);
       updateData.status = 'completed';
       
-      metadata.completedBy = completedBy;
-      metadata.completedAt = new Date().toISOString();
+      try {
+        metadata = order.metadata ? (typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata) : {};
+        metadata.completedBy = completedBy;
+        metadata.completedAt = new Date().toISOString();
+        updateData.metadata = metadata;
+      } catch (e) {
+        console.log('Could not update metadata for completion, skipping');
+      }
     }
-    
-    // Update metadata if any changes were made
-    updateData.metadata = metadata;
 
+    console.log('=== Starting Order Update Process ===');
+    console.log('Update data to be sent:', updateData);
+    
     // Update order in database
-    console.log('Updating order in database with data:', updateData);
     const { data: updatedOrder, error: updateError } = await supabaseAdmin
       .from('orders')
       .update(updateData)
@@ -151,14 +171,19 @@ export async function PATCH(
       .select()
       .single();
 
-    console.log('Update result:', { updatedOrder, updateError });
+    console.log('Supabase update result:', { 
+      success: !updateError, 
+      error: updateError,
+      updatedOrder: updatedOrder ? 'Order updated successfully' : 'No order returned'
+    });
 
     if (updateError) {
-      console.error('Update error details:', JSON.stringify(updateError, null, 2));
+      console.error('Supabase update error details:', JSON.stringify(updateError, null, 2));
       return new NextResponse(
         JSON.stringify({ 
           error: 'حدث خطأ أثناء تحديث حالة الطلب',
-          details: updateError.message 
+          details: updateError.message,
+          code: updateError.code 
         }),
         { 
           status: 500,
@@ -199,9 +224,14 @@ export async function PATCH(
     );
 
   } catch (error) {
-    console.error('Error updating order:', error);
+    console.error('Error updating order - Full error details:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
     return new NextResponse(
-      JSON.stringify({ error: 'حدث خطأ أثناء تحديث حالة الطلب' }),
+      JSON.stringify({ 
+        error: 'حدث خطأ أثناء تحديث حالة الطلب',
+        details: error instanceof Error ? error.message : String(error)
+      }),
       { 
         status: 500,
         headers: { 'Content-Type': 'application/json' }
