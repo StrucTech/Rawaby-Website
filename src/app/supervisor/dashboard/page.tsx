@@ -150,7 +150,7 @@ export default function SupervisorDashboard() {
       const token = Cookies.get('token');
       if (!token) return;
       
-      const res = await fetch(`/api/admin/orders/${orderId}`, {
+      const res = await fetch(`/api/supervisor/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -158,6 +158,8 @@ export default function SupervisorDashboard() {
         },
         body: JSON.stringify({ status: newStatus }),
       });
+      
+      const responseData = await res.json();
       
       if (res.ok) {
         // تحديث الطلب محليًا
@@ -172,15 +174,14 @@ export default function SupervisorDashboard() {
           return order;
         }));
         
-        // إعادة تحميل البيانات للتأكد من التحديث
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+        console.log('Status updated successfully:', responseData);
       } else {
-        console.error('Failed to update status');
+        console.error('Failed to update status:', responseData);
+        alert(`خطأ: ${responseData.error || 'فشل في تحديث الحالة'}`);
       }
     } catch (error) {
       console.error('Error updating status:', error);
+      alert('حدث خطأ أثناء تحديث الحالة');
     } finally {
       setUpdatingStatus(null);
     }
