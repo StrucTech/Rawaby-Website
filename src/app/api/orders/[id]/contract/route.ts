@@ -97,7 +97,7 @@ export async function GET(
     }
 
     // Get user data
-    const { data: user, error: userError } = await supabaseAdmin
+    const { data: orderUser, error: userError } = await supabaseAdmin
       .from('users')
       .select('name, email, phone, national_id')
       .eq('id', order.user_id)
@@ -114,7 +114,7 @@ export async function GET(
     }
 
     // Check if user owns the order
-    if (order.userId._id.toString() !== user.userId) {
+    if (order.user_id !== payload.userId) {
       return new NextResponse(
         JSON.stringify({ error: 'غير مصرح لك بالوصول لهذا الطلب' }),
         { 
@@ -148,10 +148,10 @@ export async function GET(
       .text('معلومات العميل:', { align: 'right' })
       .moveDown(0.5)
       .fontSize(12)
-      .text(`الاسم: ${order.userId.name}`, { align: 'right' })
-      .text(`البريد الإلكتروني: ${order.userId.email}`, { align: 'right' })
-      .text(`رقم الجوال: ${order.userId.phone}`, { align: 'right' })
-      .text(`الرقم القومي: ${order.userId.nationalId}`, { align: 'right' })
+      .text(`الاسم: ${orderUser?.name}`, { align: 'right' })
+      .text(`البريد الإلكتروني: ${orderUser?.email}`, { align: 'right' })
+      .text(`رقم الجوال: ${orderUser?.phone}`, { align: 'right' })
+      .text(`الرقم القومي: ${orderUser?.national_id}`, { align: 'right' })
       .moveDown(1);
 
     // Order Information
@@ -171,7 +171,7 @@ export async function GET(
       .moveDown(0.5)
       .fontSize(12);
 
-    order.services.forEach((service) => {
+    order.services.forEach((service: any) => {
       doc
         .text(`- ${service.name}`, { align: 'right' })
         .text(`  المدة: ${service.duration}`, { align: 'right' })

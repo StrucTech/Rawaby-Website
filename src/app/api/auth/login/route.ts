@@ -25,18 +25,9 @@ export async function POST(req: NextRequest) {
 
     // التحقق من حالة النشاط للمشرفين والمندوبين
     if (user.role === 'supervisor' || user.role === 'delegate') {
-      // التحقق من is_active
-      if (user.is_active === false) {
+      // التحقق من active
+      if (!user.active) {
         return NextResponse.json({ error: 'حسابك غير نشط. يرجى التواصل مع الإدارة لتفعيل الحساب.' }, { status: 403 });
-      }
-      
-      // التحقق من المدى التاريخي
-      const now = new Date();
-      if (user.active_from && new Date(user.active_from) > now) {
-        return NextResponse.json({ error: 'حسابك غير نشط بعد. سيتم تفعيله في التاريخ المحدد.' }, { status: 403 });
-      }
-      if (user.active_to && new Date(user.active_to) < now) {
-        return NextResponse.json({ error: 'انتهت فترة نشاط حسابك. يرجى التواصل مع الإدارة.' }, { status: 403 });
       }
     }
 
