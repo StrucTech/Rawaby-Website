@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import { useActiveStatusCheck } from '@/components/ActiveStatusChecker';
 
 interface UserPayload {
@@ -103,7 +103,7 @@ export default function SupervisorDashboard() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<UserPayload>(token);
+        const decodedToken = jwt_decode<UserPayload>(token);
         setSupervisorId(decodedToken.userId);
       } catch (error) {
         console.error('Invalid token:', error);

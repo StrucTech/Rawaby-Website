@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -51,7 +51,7 @@ function LoginForm() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decoded = jwtDecode<DecodedToken>(token);
+        const decoded = jwt_decode<DecodedToken>(token);
         setUserName(decoded.name);
         setShowWelcome(true);
         // Redirect after showing welcome message

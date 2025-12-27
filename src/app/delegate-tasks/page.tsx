@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import { useActiveStatusCheck } from '@/components/ActiveStatusChecker';
 
 interface UserPayload {
@@ -24,7 +24,7 @@ export default function DelegateTasksPage() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<UserPayload>(token);
+        const decodedToken = jwt_decode<UserPayload>(token);
         if (decodedToken.role === 'delegate') {
           setDelegateId(decodedToken.userId);
         } else {

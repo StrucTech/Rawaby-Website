@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -85,7 +85,7 @@ export default function GuardianInfoPage() {
     }
 
     try {
-      jwtDecode(token);
+      jwt_decode(token);
     } catch (error) {
       Cookies.remove('token');
       router.push('/login?redirectTo=/guardian-info');

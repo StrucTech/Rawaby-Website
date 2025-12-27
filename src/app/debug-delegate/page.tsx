@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface UserPayload {
   userId: string;
@@ -19,7 +19,7 @@ export default function DebugDelegatePage() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<UserPayload>(token);
+        const decodedToken = jwt_decode<UserPayload>(token);
         console.log('Decoded token:', decodedToken);
         setDelegateId(decodedToken.userId);
       } catch (error) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface UserOrder {
   id: string;
@@ -58,7 +58,7 @@ export default function MyOrdersPage() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decoded = jwtDecode<DecodedToken>(token);
+        const decoded = jwt_decode<DecodedToken>(token);
         setUserInfo(decoded);
         fetchMyOrders(token);
       } catch (error) {

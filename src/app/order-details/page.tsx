@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -58,7 +58,7 @@ export default function OrderDetailsPage() {
     }
 
     try {
-      const decoded = jwtDecode(token) as DecodedToken;
+      const decoded = jwt_decode(token) as DecodedToken;
       setUserInfo(decoded);
       
       // Redirect delegates to their tasks page

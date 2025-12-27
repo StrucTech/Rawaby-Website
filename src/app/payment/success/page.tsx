@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface PaymentDetails {
   method: string;
@@ -26,7 +26,7 @@ const PaymentSuccessPage: React.FC = () => {
 
     // Verify token
     try {
-      jwtDecode(token);
+      jwt_decode(token);
     } catch (error) {
       Cookies.remove('token');
       router.push('/login');

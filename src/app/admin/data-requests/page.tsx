@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DataRequest {
   id: string;
@@ -66,7 +66,7 @@ export default function AdminDataRequestsPage() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decoded = jwtDecode<UserPayload>(token);
+        const decoded = jwt_decode<UserPayload>(token);
         if (decoded.role !== 'admin') {
           router.push('/login');
           return;

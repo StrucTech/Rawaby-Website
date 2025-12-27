@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface Service {
   id: string; // UUID من قاعدة البيانات
@@ -106,7 +106,7 @@ const ServicesPage: React.FC = () => {
 
       // Verify token is valid
       try {
-        jwtDecode(token);
+        jwt_decode(token);
       } catch (error) {
         // If token is invalid, clear it and redirect to login
         Cookies.remove('token');

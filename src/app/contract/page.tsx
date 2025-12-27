@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -59,7 +59,7 @@ export default function ContractPage() {
       }
 
       try {
-        const decoded = jwtDecode<DecodedToken>(token);
+        const decoded = jwt_decode<DecodedToken>(token);
         if (!decoded) {
           throw new Error('Invalid token');
         }
@@ -214,7 +214,7 @@ export default function ContractPage() {
       const token = Cookies.get('token');
       if (!token) throw new Error('No token found');
 
-      const decoded = jwtDecode<DecodedToken>(token);
+      const decoded = jwt_decode<DecodedToken>(token);
       if (!decoded || !decoded.email) throw new Error('Invalid token');
 
       // Send PDF to user's email
@@ -256,7 +256,7 @@ export default function ContractPage() {
         return;
       }
 
-      const decoded = jwtDecode<DecodedToken>(token);
+      const decoded = jwt_decode<DecodedToken>(token);
       if (!decoded) {
         throw new Error('Invalid token');
       }

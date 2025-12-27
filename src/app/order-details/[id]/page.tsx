@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -31,7 +31,7 @@ export default function OrderDetailsPage() {
 
         // Decode user info
         try {
-          const decoded = jwtDecode(token) as DecodedToken;
+          const decoded = jwt_decode(token) as DecodedToken;
           setUserInfo(decoded);
         } catch (error) {
           setError('رمز المصادقة غير صالح');
@@ -447,7 +447,7 @@ function ContractsOrButtonSection({ orderId }: { orderId: string }) {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<DecodedToken>(token);
+        const decodedToken = jwt_decode<DecodedToken>(token);
         setUserRole(decodedToken.role);
       } catch (error) {
         console.error('Error decoding token:', error);

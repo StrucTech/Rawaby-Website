@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import NotificationBadge from './NotificationBadge';
 import UserNotificationBadge from './UserNotificationBadge';
 
@@ -77,7 +77,7 @@ export default function Navbar() {
       const token = Cookies.get('token');
       if (token) {
         try {
-          const decoded = jwtDecode<DecodedToken>(token);
+          const decoded = jwt_decode<DecodedToken>(token);
           if (decoded.name) {
             setUserName(decoded.name);
             setUserRole(decoded.role);

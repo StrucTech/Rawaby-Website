@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -43,7 +43,7 @@ export default function CartPage() {
       }
 
       try {
-        const decoded = jwtDecode<DecodedToken>(token);
+        const decoded = jwt_decode<DecodedToken>(token);
         if (!decoded) {
           throw new Error('Invalid token');
         }
@@ -111,7 +111,7 @@ export default function CartPage() {
         return;
       }
 
-      const decoded = jwtDecode<DecodedToken>(token);
+      const decoded = jwt_decode<DecodedToken>(token);
       if (!decoded) {
         throw new Error('Invalid token');
       }
