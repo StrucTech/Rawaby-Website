@@ -301,7 +301,7 @@ const PaymentPage: React.FC = () => {
                         setCardNumber(value.replace(/(\d{4})/g, '$1 ').trim());
                       }}
                       placeholder="1234 5678 9012 3456"
-                      maxLength="23"
+                      maxLength={23}
                       className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
                         error && !cardNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
@@ -324,7 +324,7 @@ const PaymentPage: React.FC = () => {
                           setExpiryDate(value);
                         }}
                         placeholder="MM/YY"
-                        maxLength="5"
+                        maxLength={5}
                         className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
                           error && !expiryDate ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
@@ -340,7 +340,7 @@ const PaymentPage: React.FC = () => {
                         value={cvv}
                         onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
                         placeholder="123"
-                        maxLength="4"
+                        maxLength={4}
                         className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
                           error && !cvv ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
