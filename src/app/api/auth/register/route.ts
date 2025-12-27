@@ -6,6 +6,40 @@ import jwt, { Secret } from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET as Secret;
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is not set');
 
+// دالة التحقق من قوة كلمة المرور
+const validatePasswordStrength = (password: string): { valid: boolean; message?: string } => {
+  const requirements = {
+    minLength: password.length >= 12,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumbers: /[0-9]/.test(password),
+    hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+  };
+
+  let score = 0;
+  if (requirements.minLength) score++;
+  if (requirements.hasUppercase) score++;
+  if (requirements.hasLowercase) score++;
+  if (requirements.hasNumbers) score++;
+  if (requirements.hasSpecialChar) score++;
+
+  if (score < 4) {
+    const missing = [];
+    if (!requirements.minLength) missing.push('12 حرف على الأقل');
+    if (!requirements.hasUppercase) missing.push('حرف كبير واحد');
+    if (!requirements.hasLowercase) missing.push('حرف صغير واحد');
+    if (!requirements.hasNumbers) missing.push('رقم واحد');
+    if (!requirements.hasSpecialChar) missing.push('حرف خاص واحد');
+
+    return {
+      valid: false,
+      message: `كلمة المرور ضعيفة جداً. المتطلبات الناقصة: ${missing.join('، ')}`
+    };
+  }
+
+  return { valid: true };
+};
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -14,6 +48,12 @@ export async function POST(req: NextRequest) {
     // تحقق من الحقول المطلوبة
     if (!name || !email || !phone || !nationalId || !password) {
       return NextResponse.json({ error: 'جميع الحقول مطلوبة' }, { status: 400 });
+    }
+
+    // التحقق من قوة كلمة المرور
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.valid) {
+      return NextResponse.json({ error: passwordValidation.message }, { status: 400 });
     }
 
     // تحقق من صحة البريد

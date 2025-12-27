@@ -11,7 +11,123 @@ export async function GET(req: NextRequest) {
     const token = searchParams.get('token');
 
     function htmlMsg({ color, icon, title, msg, btnText, btnHref }: { color: string, icon: string, title: string, msg: string, btnText: string, btnHref: string }) {
-      return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title}</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-50 min-h-screen flex items-center justify-center"><div class="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center"><div class="${color} mb-4">${icon}</div><h2 class="text-xl font-bold text-gray-900 mb-2">${title}</h2><p class="text-gray-600 mb-4">${msg}</p><a href="${btnHref}" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">${btnText}</a></div></body></html>`;
+      return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      width: 100%;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .icon {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 15px;
+      color: white;
+    }
+    .content {
+      padding: 30px 20px;
+      text-align: center;
+    }
+    h2 {
+      font-size: 24px;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    .message {
+      font-size: 15px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 25px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 30px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    .success .header {
+      background: linear-gradient(135deg, #34a853 0%, #1e8449 100%);
+    }
+    .success h2 {
+      color: #34a853;
+    }
+    .error .header {
+      background: linear-gradient(135deg, #ea4335 0%, #c5221f 100%);
+    }
+    .error h2 {
+      color: #ea4335;
+    }
+    .info .header {
+      background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+    }
+    .info h2 {
+      color: #4285f4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <div class="header">
+      <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        ${icon}
+      </svg>
+    </div>
+    <div class="content">
+      <h2>${title}</h2>
+      <p class="message">${msg}</p>
+      <a href="${btnHref}" class="btn">${btnText}</a>
+    </div>
+  </div>
+  <script>
+    // تحديد نوع الرسالة تلقائياً
+    const title = '${title}';
+    const container = document.getElementById('container');
+    if (title.includes('نجاح') || title.includes('مفعل')) {
+      container.classList.add('success');
+    } else if (title.includes('خطأ')) {
+      container.classList.add('error');
+    } else {
+      container.classList.add('info');
+    }
+  </script>
+</body>
+</html>`;
     }
 
     if (!token) {

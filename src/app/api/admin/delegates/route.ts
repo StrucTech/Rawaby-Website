@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, email, phone, nationalId, password } = body;
+    const { name, email, phone, nationalId, password, isActive, activeFrom, activeTo } = body;
 
     if (!name || !email || !phone || !nationalId || !password) {
       return NextResponse.json({ error: 'جميع الحقول مطلوبة' }, { status: 400 });
@@ -61,7 +61,10 @@ export async function POST(req: NextRequest) {
         role: 'delegate',
         active: true,
         email_verified: true,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        is_active: isActive !== false,
+        active_from: activeFrom || null,
+        active_to: activeTo || null
       })
       .select()
       .single();
@@ -104,7 +107,7 @@ export async function GET(req: NextRequest) {
 
     const { data: delegates, error } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, phone, national_id, active, created_at')
+      .select('id, name, email, phone, national_id, active, created_at, is_active, active_from, active_to')
       .eq('role', 'delegate');
 
     if (error) {

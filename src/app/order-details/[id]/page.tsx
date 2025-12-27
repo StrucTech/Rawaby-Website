@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -31,7 +31,7 @@ export default function OrderDetailsPage() {
 
         // Decode user info
         try {
-          const decoded = jwtDecode(token) as DecodedToken;
+          const decoded = jwt_decode(token) as DecodedToken;
           setUserInfo(decoded);
         } catch (error) {
           setError('رمز المصادقة غير صالح');
@@ -114,15 +114,20 @@ export default function OrderDetailsPage() {
     console.log('Could not parse order metadata:', e);
   }
 
+  // التحقق إذا كان المستخدم مندوب
+  const isDelegate = userInfo?.role === 'delegate';
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {/* Header - إخفاء رقم الطلب من المندوب */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">تفاصيل الطلب</h1>
-              <p className="text-sm text-gray-600 mt-1">رقم الطلب: {orderId}</p>
+              {!isDelegate && (
+                <p className="text-sm text-gray-600 mt-1">رقم الطلب: {orderId}</p>
+              )}
             </div>
             <div className="text-right">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -138,20 +143,22 @@ export default function OrderDetailsPage() {
           </div>
         </div>
 
-        {/* Client Info */}
-        <div className="bg-blue-50 rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">معلومات العميل</h2>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-blue-700">معرف العميل</label>
-              <p className="text-blue-900 font-mono text-sm">{orderData.client_id}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-blue-700">تاريخ إنشاء الطلب</label>
-              <p className="text-blue-900">{new Date(orderData.created_at).toLocaleString('ar-SA')}</p>
+        {/* Client Info - إخفاء من المندوب */}
+        {!isDelegate && (
+          <div className="bg-blue-50 rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-semibold text-blue-900 mb-4">معلومات العميل</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-blue-700">معرف العميل</label>
+                <p className="text-blue-900 font-mono text-sm">{orderData.client_id}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-blue-700">تاريخ إنشاء الطلب</label>
+                <p className="text-blue-900">{new Date(orderData.created_at).toLocaleString('ar-SA')}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Guardian Info */}
@@ -287,8 +294,8 @@ export default function OrderDetailsPage() {
           </div>
         )}
 
-        {/* Assignment Info */}
-        {orderMetadata.assignedDelegate && (
+        {/* Assignment Info - إخفاء من المندوب */}
+        {orderMetadata.assignedDelegate && !isDelegate && (
           <div className="bg-blue-50 rounded-lg p-6 mt-6">
             <h2 className="text-lg font-semibold text-blue-900 mb-4">معلومات التعيين</h2>
             <div className="space-y-3">
@@ -306,8 +313,13 @@ export default function OrderDetailsPage() {
           </div>
         )}
 
-        {/* Contracts Section */}
-        <ContractsOrButtonSection orderId={orderId} />
+        {/* Contracts Section - Hidden from Delegates Only */}
+        {userInfo?.role !== 'delegate' && (
+          <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">العقود المرتبطة</h2>
+            <ContractsSection orderId={orderId} />
+          </div>
+        )}
 
         {/* Close Button */}
         <div className="mt-8 text-center">
@@ -319,51 +331,6 @@ export default function OrderDetailsPage() {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// مكون عرض العقود
-function ContractsOrButtonSection({ orderId }: { orderId: string }) {
-  const [userRole, setUserRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const token = Cookies.get('token');
-    if (token) {
-      try {
-        const decodedToken = jwtDecode<DecodedToken>(token);
-        setUserRole(decodedToken.role);
-      } catch (error) {
-        console.error('Error decoding token:', error);
-      }
-    }
-  }, []);
-
-  // للمندوب: عرض زرار يوديه لصفحة العقود المخصصة
-  if (userRole === 'delegate') {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">العقود المرتبطة</h2>
-        <div className="text-center py-8">
-          <div className="text-gray-400 text-6xl mb-4">📄</div>
-          <h3 className="text-xl font-semibold text-gray-600 mb-4">عرض العقود</h3>
-          <p className="text-gray-500 mb-6">اضغط الزر أدناه لعرض جميع العقود المرتبطة بهذا الطلب</p>
-          <button
-            onClick={() => window.open(`/delegate-contracts/${orderId}`, '_blank')}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            📋 عرض العقود
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // للمستخدمين الآخرين: عرض العقود كما هو
-  return (
-    <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">العقود المرتبطة</h2>
-      <ContractsSection orderId={orderId} />
     </div>
   );
 }
@@ -468,6 +435,51 @@ function ContractsSection({ orderId }: { orderId: string }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// مكون عرض العقود
+function ContractsOrButtonSection({ orderId }: { orderId: string }) {
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = Cookies.get('token');
+    if (token) {
+      try {
+        const decodedToken = jwt_decode<DecodedToken>(token);
+        setUserRole(decodedToken.role);
+      } catch (error) {
+        console.error('Error decoding token:', error);
+      }
+    }
+  }, []);
+
+  // للمندوب: عرض زرار يوديه لصفحة العقود المخصصة
+  if (userRole === 'delegate') {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">العقود المرتبطة</h2>
+        <div className="text-center py-8">
+          <div className="text-gray-400 text-6xl mb-4">📄</div>
+          <h3 className="text-xl font-semibold text-gray-600 mb-4">عرض العقود</h3>
+          <p className="text-gray-500 mb-6">اضغط الزر أدناه لعرض جميع العقود المرتبطة بهذا الطلب</p>
+          <button
+            onClick={() => window.open(`/delegate-contracts/${orderId}`, '_blank')}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            📋 عرض العقود
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // للمستخدمين الآخرين: عرض العقود كما هو
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">العقود المرتبطة</h2>
+      <ContractsSection orderId={orderId} />
     </div>
   );
 }

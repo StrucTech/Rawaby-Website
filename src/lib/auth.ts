@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import jwt, { Secret } from 'jsonwebtoken';
-import { IUser } from '@/models/User';
+import { IUser } from '@/types/user';
 
 const JWT_SECRET = process.env.JWT_SECRET as Secret;
 

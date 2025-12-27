@@ -16,27 +16,25 @@ export async function PATCH(
   
   try {
     const body = await request.json();
-    const { status, staffId, completedBy } = body;
+    const { status, staffId, completedBy, assigned_supervisor_id } = body;
     
-    console.log('PATCH request body:', { status, staffId, completedBy });
+    console.log('PATCH request body:', { status, staffId, completedBy, assigned_supervisor_id });
 
-    if (!status) {
-      console.log('No status provided in request');
-      return new NextResponse(
-        JSON.stringify({ error: 'الرجاء تحديد حالة الطلب' }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Validate status - استخدام الحالات الجديدة
+    // الحالات الصالحة (القديمة والجديدة)
     const validStatuses = [
+      // حالات جديدة (عربية)
+      'تعيين مشرف',
+      'تعيين مندوب',
+      'تحت الإجراء',
+      'مطلوب بيانات إضافية أو مرفقات',
+      'بانتظار رد العميل',
+      'تم الانتهاء بنجاح',
+      // حالات قديمة (للتوافقية)
       'under_review', 'assigned', 'in_progress', 'completed', 
       'waiting_client', 'waiting_attachments', 'paid', 'cancelled'
     ];
-    if (!validStatuses.includes(status)) {
+    
+    if (status && !validStatuses.includes(status)) {
       console.log('Invalid status received:', status, 'Valid statuses:', validStatuses);
       return new NextResponse(
         JSON.stringify({ error: 'حالة الطلب غير صالحة', receivedStatus: status }),
@@ -104,14 +102,40 @@ export async function PATCH(
 
     // Update order status and delegate assignment using new schema
     const updateData: any = { 
-      status,
       updated_at: new Date().toISOString() // إضافة timestamp للتحديث
     };
+    
+    // إذا تم تمرير الحالة، نستخدمها
+    if (status) {
+      updateData.status = status;
+    }
     
     console.log('Preparing update with status:', status);
     
     // Parse existing metadata to preserve other data (only if needed)
     let metadata: any = {};
+    
+    // إذا أراد المشرف أخذ الطلب (تعيين نفسه)
+    if (assigned_supervisor_id) {
+      console.log('Supervisor taking order:', params.id, 'by supervisor:', assigned_supervisor_id);
+      
+      // التحقق من أن الطلب لم يُعيّن لمشرف آخر
+      if (order.assigned_supervisor_id && order.assigned_supervisor_id !== assigned_supervisor_id) {
+        return new NextResponse(
+          JSON.stringify({ error: 'هذا الطلب معين لمشرف آخر بالفعل' }),
+          { 
+            status: 403,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      updateData.assigned_supervisor_id = assigned_supervisor_id;
+      // تغيير الحالة تلقائياً إلى "تعيين مندوب" عند أخذ الطلب
+      if (status === 'تعيين مندوب' || !status) {
+        updateData.status = 'تعيين مندوب';
+      }
+    }
     
     // If staffId is provided, assign the order to delegate using new schema
     if (staffId) {
@@ -131,7 +155,11 @@ export async function PATCH(
       updateData.assigned_delegate_id = staffId;
       updateData.assigned_supervisor_id = payload.userId; // تعيين المشرف الحالي كمسؤول
       updateData.assigned_at = new Date().toISOString();
-      updateData.status = 'assigned'; // تحديث الحالة إلى معين
+      
+      // تغيير الحالة تلقائياً إلى "تحت الإجراء" عند تعيين مندوب
+      if (!status || status === 'assigned') {
+        updateData.status = 'تحت الإجراء';
+      }
       
       // حفظ معلومات إضافية في metadata فقط إذا كان هناك تعيين
       try {
@@ -148,7 +176,7 @@ export async function PATCH(
     // If completedBy is provided, mark who completed the task
     if (completedBy) {
       console.log('Order', params.id, 'completed by delegate', completedBy);
-      updateData.status = 'completed';
+      updateData.status = 'تم الانتهاء بنجاح';
       
       try {
         metadata = order.metadata ? (typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata) : {};

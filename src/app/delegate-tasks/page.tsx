@@ -1,7 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
+import { useActiveStatusCheck } from '@/components/ActiveStatusChecker';
 
 interface UserPayload {
   userId: string;
@@ -11,6 +12,9 @@ interface UserPayload {
 }
 
 export default function DelegateTasksPage() {
+  // التحقق من حالة النشاط كل 30 ثانية
+  useActiveStatusCheck({ checkInterval: 30000 });
+
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -20,7 +24,7 @@ export default function DelegateTasksPage() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<UserPayload>(token);
+        const decodedToken = jwt_decode<UserPayload>(token);
         if (decodedToken.role === 'delegate') {
           setDelegateId(decodedToken.userId);
         } else {
@@ -65,46 +69,57 @@ export default function DelegateTasksPage() {
     fetchTasks();
   }, [delegateId]);
 
+  // إرسال إشعار للمشرف بإتمام المهمة (لا يغير حالة الطلب)
   const handleDone = async (taskId: string) => {
+    if (!confirm('هل أنت متأكد من إرسال إشعار للمشرف بإتمام هذه المهمة؟')) {
+      return;
+    }
+    
     setUpdating(taskId);
     try {
       const token = Cookies.get('token');
       if (!token) return;
       
-      const res = await fetch('/api/orders', {
-        method: 'PUT',
+      // إرسال إشعار للمشرف بدلاً من تغيير حالة الطلب
+      const res = await fetch('/api/delegate-completion', {
+        method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
           orderId: taskId,
-          status: 'completed'
+          message: 'تم إتمام المهمة بنجاح من قبل المندوب'
         }),
       });
       
       if (res.ok) {
-        // تحديث البيانات محلياً
+        // تحديث البيانات محلياً - إضافة علامة أنه تم إرسال الإشعار
         setTasks(prev => prev.map(task => {
           if (task.id === taskId) {
             return { 
               ...task, 
-              status: 'completed',
-              completed_by: delegateId,
-              completed_at: new Date().toISOString()
+              notificationSent: true,
+              notificationSentAt: new Date().toISOString()
             };
           }
           return task;
         }));
         
         // رسالة نجاح
-        alert('تم إكمال المهمة بنجاح! ✅');
+        alert('✅ تم إرسال إشعار للمشرف بإتمام المهمة. سينتظر الطلب موافقة المشرف لتغيير الحالة.');
       } else {
         const errorData = await res.json();
-        alert('خطأ: ' + (errorData.error || 'حدث خطأ أثناء إكمال المهمة'));
+        if (errorData.sql) {
+          console.log('SQL to create table:', errorData.sql);
+          alert('يرجى إنشاء جدول الإشعارات أولاً. راجع وحدة التحكم للحصول على SQL.');
+        } else {
+          alert('خطأ: ' + (errorData.error || 'حدث خطأ أثناء إرسال الإشعار'));
+        }
       }
     } catch (error) {
-      console.error('Error updating task:', error);
+      console.error('Error sending notification:', error);
+      alert('حدث خطأ أثناء إرسال الإشعار');
     } finally {
       setUpdating(null);
     }
@@ -182,13 +197,23 @@ export default function DelegateTasksPage() {
                   )}
                 </td>
                 <td className="p-2">
-                  <button
-                    className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:bg-gray-400"
-                    disabled={task.status === 'completed' || updating === task.id}
-                    onClick={() => handleDone(task.id)}
-                  >
-                    {updating === task.id ? '...جارٍ الحفظ' : 'تم التنفيذ'}
-                  </button>
+                  {task.notificationSent ? (
+                    <span className="text-green-600 text-sm">
+                      ✅ تم إبلاغ المشرف
+                    </span>
+                  ) : task.status === 'تم الانتهاء بنجاح' ? (
+                    <span className="text-green-600 text-sm">
+                      ✓ تم الانتهاء
+                    </span>
+                  ) : (
+                    <button
+                      className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:bg-gray-400"
+                      disabled={updating === task.id}
+                      onClick={() => handleDone(task.id)}
+                    >
+                      {updating === task.id ? '...جارٍ الإرسال' : 'إبلاغ المشرف بالإتمام'}
+                    </button>
+                  )}
                 </td>
               </tr>
             );

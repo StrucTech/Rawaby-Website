@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import Link from 'next/link';
 
 interface UserPayload {
@@ -21,7 +21,7 @@ export default function NotificationBadge() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<UserPayload>(token);
+        const decodedToken = jwt_decode<UserPayload>(token);
         setUserRole(decodedToken.role);
         
         // جلب عدد الرسائل غير المقروءة فقط للمندوبين

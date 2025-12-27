@@ -10,6 +10,25 @@ export default function TasksManagement() {
   const [delegates, setDelegates] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
+  // حالة المودال لتعديل التعيينات
+  const [assignmentModal, setAssignmentModal] = useState<{
+    isOpen: boolean;
+    orderId: string | null;
+    currentSupervisor: string | null;
+    currentDelegate: string | null;
+    newSupervisor: string;
+    newDelegate: string;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    orderId: null,
+    currentSupervisor: null,
+    currentDelegate: null,
+    newSupervisor: '',
+    newDelegate: '',
+    isLoading: false
+  });
+  
   // إحصائيات عامة
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -23,6 +42,78 @@ export default function TasksManagement() {
   
   // إحصائيات المشرفين
   const [supervisorStats, setSupervisorStats] = useState<any[]>([]);
+  
+  // فتح مودال تعديل التعيينات
+  const openAssignmentModal = (order: any) => {
+    setAssignmentModal({
+      isOpen: true,
+      orderId: order.id,
+      currentSupervisor: order.assigned_supervisor_id,
+      currentDelegate: order.assigned_delegate_id,
+      newSupervisor: order.assigned_supervisor_id || '',
+      newDelegate: order.assigned_delegate_id || '',
+      isLoading: false
+    });
+  };
+
+  // إغلاق مودال تعديل التعيينات
+  const closeAssignmentModal = () => {
+    setAssignmentModal({
+      isOpen: false,
+      orderId: null,
+      currentSupervisor: null,
+      currentDelegate: null,
+      newSupervisor: '',
+      newDelegate: '',
+      isLoading: false
+    });
+  };
+
+  // حفظ التعيينات الجديدة
+  const saveNewAssignments = async () => {
+    if (!assignmentModal.orderId) return;
+
+    // التحقق من أن يكون هناك تغيير واحد على الأقل
+    if (
+      assignmentModal.newSupervisor === assignmentModal.currentSupervisor &&
+      assignmentModal.newDelegate === assignmentModal.currentDelegate
+    ) {
+      alert('يجب تغيير المشرف أو المندوب');
+      return;
+    }
+
+    try {
+      setAssignmentModal(prev => ({ ...prev, isLoading: true }));
+      const token = Cookies.get('token');
+
+      const response = await fetch('/api/orders', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderId: assignmentModal.orderId,
+          assigned_supervisor_id: assignmentModal.newSupervisor || null,
+          assigned_delegate_id: assignmentModal.newDelegate || null
+        })
+      });
+
+      if (response.ok) {
+        alert('تم تحديث التعيينات بنجاح');
+        closeAssignmentModal();
+        loadAllData();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'فشل تحديث التعيينات');
+      }
+    } catch (error) {
+      console.error('Error updating assignments:', error);
+      alert('حدث خطأ أثناء تحديث التعيينات');
+    } finally {
+      setAssignmentModal(prev => ({ ...prev, isLoading: false }));
+    }
+  };
 
   const getCurrentUser = async () => {
     try {
@@ -218,33 +309,64 @@ export default function TasksManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'in_progress':
+      case 'تعيين مشرف':
+        return 'bg-red-100 text-red-800';
+      case 'تعيين مندوب':
+        return 'bg-orange-100 text-orange-800';
+      case 'تحت الإجراء':
         return 'bg-blue-100 text-blue-800';
-      case 'new':
-      case 'pending':
+      case 'مطلوب بيانات إضافية أو مرفقات':
         return 'bg-yellow-100 text-yellow-800';
-      case 'paid':
+      case 'بانتظار رد العميل':
         return 'bg-purple-100 text-purple-800';
+      case 'تم الانتهاء بنجاح':
+        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'مكتمل';
-      case 'in_progress':
-        return 'قيد التنفيذ';
-      case 'new':
-      case 'pending':
-        return 'في الانتظار';
-      case 'paid':
-        return 'مدفوع';
-      default:
-        return status;
+    return status || 'تعيين مشرف';
+  };
+
+  const validStatusOptions = [
+    { value: 'تعيين مشرف', label: 'تعيين مشرف' },
+    { value: 'تعيين مندوب', label: 'تعيين مندوب' },
+    { value: 'تحت الإجراء', label: 'تحت الإجراء' },
+    { value: 'مطلوب بيانات إضافية أو مرفقات', label: 'مطلوب بيانات إضافية أو مرفقات' },
+    { value: 'بانتظار رد العميل', label: 'بانتظار رد العميل' },
+    { value: 'تم الانتهاء بنجاح', label: 'تم الانتهاء بنجاح' }
+  ];
+
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      setUpdatingStatus(orderId);
+      const token = Cookies.get('token');
+      
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        loadAllData();
+        alert('تم تحديث حالة الطلب بنجاح');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'فشل تحديث حالة الطلب');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('حدث خطأ أثناء تحديث الحالة');
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -413,8 +535,9 @@ export default function TasksManagement() {
                       <th className="px-4 py-2 text-right">المشرف المسؤول</th>
                       <th className="px-4 py-2 text-right">المندوب المعين</th>
                       <th className="px-4 py-2 text-right">حالة الطلب</th>
+                      <th className="px-4 py-2 text-right">تحديث الحالة</th>
                       <th className="px-4 py-2 text-right">تاريخ الإنشاء</th>
-                      <th className="px-4 py-2 text-right">تعيين مندوب</th>
+                      <th className="px-4 py-2 text-right">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -449,30 +572,32 @@ export default function TasksManagement() {
                           </span>
                         </td>
                         <td className="px-4 py-2">
+                          <select 
+                            className="text-sm border rounded px-2 py-1 w-full"
+                            value={order.status || 'تعيين مشرف'}
+                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                            disabled={updatingStatus === order.id}
+                          >
+                            {validStatusOptions.map(option => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          {updatingStatus === order.id && (
+                            <span className="text-xs text-blue-600">جاري التحديث...</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
                           {new Date(order.created_at).toLocaleDateString('ar-SA')}
                         </td>
                         <td className="px-4 py-2">
-                          {!order.assignedDelegate && delegates.length > 0 && (
-                            <select 
-                              className="text-sm border rounded px-2 py-1"
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  assignDelegate(order.id, e.target.value);
-                                }
-                              }}
-                              defaultValue=""
-                            >
-                              <option value="">تعيين مندوب</option>
-                              {delegates.map(delegate => (
-                                <option key={delegate.id} value={delegate.id}>
-                                  {delegate.name}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          {order.assignedDelegate && (
-                            <span className="text-green-600 text-sm">مُعيّن لمندوب</span>
-                          )}
+                          <button
+                            onClick={() => openAssignmentModal(order)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition"
+                          >
+                            تعديل التعيينات
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -567,6 +692,93 @@ export default function TasksManagement() {
               </div>
             </div>
           </>
+        )}
+
+        {/* مودال تعديل التعيينات */}
+        {assignmentModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" dir="rtl">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold mb-4 text-purple-900">تعديل التعيينات</h2>
+              
+              <div className="space-y-4">
+                {/* تحديد المشرف */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    المشرف المسؤول
+                  </label>
+                  <select
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-right"
+                    value={assignmentModal.newSupervisor}
+                    onChange={(e) =>
+                      setAssignmentModal(prev => ({
+                        ...prev,
+                        newSupervisor: e.target.value
+                      }))
+                    }
+                  >
+                    <option value="">-- اختر مشرفاً --</option>
+                    {supervisors.map(supervisor => (
+                      <option key={supervisor.id} value={supervisor.id}>
+                        {supervisor.name} ({supervisor.email})
+                      </option>
+                    ))}
+                  </select>
+                  {assignmentModal.currentSupervisor && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      المشرف الحالي: {supervisors.find(s => s.id === assignmentModal.currentSupervisor)?.name || 'غير محدد'}
+                    </p>
+                  )}
+                </div>
+
+                {/* تحديد المندوب */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    المندوب المعين
+                  </label>
+                  <select
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-right"
+                    value={assignmentModal.newDelegate}
+                    onChange={(e) =>
+                      setAssignmentModal(prev => ({
+                        ...prev,
+                        newDelegate: e.target.value
+                      }))
+                    }
+                  >
+                    <option value="">-- اختر مندوباً --</option>
+                    {delegates.map(delegate => (
+                      <option key={delegate.id} value={delegate.id}>
+                        {delegate.name} ({delegate.email})
+                      </option>
+                    ))}
+                  </select>
+                  {assignmentModal.currentDelegate && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      المندوب الحالي: {delegates.find(d => d.id === assignmentModal.currentDelegate)?.name || 'غير محدد'}
+                    </p>
+                  )}
+                </div>
+
+                {/* الأزرار */}
+                <div className="flex gap-3 justify-end pt-4 border-t">
+                  <button
+                    onClick={closeAssignmentModal}
+                    disabled={assignmentModal.isLoading}
+                    className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 transition disabled:opacity-50"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    onClick={saveNewAssignments}
+                    disabled={assignmentModal.isLoading}
+                    className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white transition disabled:opacity-50"
+                  >
+                    {assignmentModal.isLoading ? 'جاري الحفظ...' : 'حفظ التعيينات'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

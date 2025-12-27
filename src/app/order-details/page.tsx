@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface DecodedToken {
   userId: string;
@@ -58,7 +58,7 @@ export default function OrderDetailsPage() {
     }
 
     try {
-      const decoded = jwtDecode(token) as DecodedToken;
+      const decoded = jwt_decode(token) as DecodedToken;
       setUserInfo(decoded);
       
       // Redirect delegates to their tasks page
@@ -238,7 +238,7 @@ export default function OrderDetailsPage() {
                     </div>
                     <div className="text-left">
                       <p className="text-lg font-semibold text-blue-600">
-                        {service.price.toLocaleString()} ريال
+                        {service.price.toLocaleString()} جنيه مصري
                       </p>
                     </div>
                   </div>
@@ -250,7 +250,7 @@ export default function OrderDetailsPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-gray-900">المجموع الكلي:</span>
                   <span className="text-2xl font-bold text-blue-600">
-                    {orderData.totalPrice.toLocaleString()} ريال
+                    {orderData.totalPrice.toLocaleString()} جنيه مصري
                   </span>
                 </div>
               </div>

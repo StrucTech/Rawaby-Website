@@ -37,7 +37,7 @@ async function checkAllOrders() {
       orders.forEach((order, index) => {
         console.log(`\n${index + 1}. طلب رقم: ${order.id}`);
         console.log(`   العميل: ${order.client?.name || 'غير محدد'} (${order.client?.email || order.client_id})`);
-        console.log(`   المبلغ: ${order.total_price} ريال`);
+        console.log(`   المبلغ: ${order.total_price} جنيه مصري`);
         console.log(`   الحالة: ${order.status}`);
         console.log(`   التاريخ: ${new Date(order.created_at).toLocaleString('ar-SA')}`);
         

@@ -23,6 +23,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'الحساب غير مفعل. يرجى تفعيل الحساب من خلال رابط التحقق المرسل إلى بريدك الإلكتروني.' }, { status: 403 });
     }
 
+    // التحقق من حالة النشاط للمشرفين والمندوبين
+    if (user.role === 'supervisor' || user.role === 'delegate') {
+      // التحقق من active
+      if (!user.active) {
+        return NextResponse.json({ error: 'حسابك غير نشط. يرجى التواصل مع الإدارة لتفعيل الحساب.' }, { status: 403 });
+      }
+    }
+
     const isMatch = await UserModel.comparePassword(password, user.password);
     if (!isMatch) {
       return NextResponse.json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, { status: 401 });

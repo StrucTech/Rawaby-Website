@@ -7,6 +7,11 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// =============================================
+// API لرفع قوالب العقود الفارغة (للأدمن فقط)
+// يتم تخزينها في bucket: contract-templates
+// =============================================
+
 export async function POST(req: NextRequest) {
   try {
     // التحقق من الصلاحيات
@@ -41,33 +46,65 @@ export async function POST(req: NextRequest) {
     const contract1Buffer = await contract1.arrayBuffer();
     const contract2Buffer = await contract2.arrayBuffer();
 
+    // =============================================
+    // استخدام bucket: contract-templates للقوالب الفارغة
+    // =============================================
+    const templateBucket = 'contract-templates';
+
+    // التحقق من وجود bucket القوالب وإنشاؤه إذا لم يكن موجوداً
+    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+    const existingBucket = buckets?.find(b => b.name === templateBucket);
+    
+    if (!existingBucket) {
+      console.log('Creating contract-templates bucket...');
+      const { error: bucketError } = await supabaseAdmin.storage.createBucket(templateBucket, {
+        public: true, // عام - حتى يمكن إرسال الملفات للعملاء
+        allowedMimeTypes: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ]
+      });
+      
+      if (bucketError) {
+        console.error('Error creating templates bucket:', bucketError);
+        return NextResponse.json({ error: 'فشل في إنشاء مساحة تخزين القوالب' }, { status: 500 });
+      }
+      console.log('✅ تم إنشاء bucket قوالب العقود');
+    }
+
     // حذف الملفات القديمة إن وجدت
     const { data: existingFiles } = await supabaseAdmin
       .storage
-      .from('contracts')
-      .list('templates');
+      .from(templateBucket)
+      .list('');
 
     if (existingFiles && existingFiles.length > 0) {
-      const filesToDelete = existingFiles.map(file => `templates/${file.name}`);
+      const filesToDelete = existingFiles.map(file => file.name);
       await supabaseAdmin
         .storage
-        .from('contracts')
+        .from(templateBucket)
         .remove(filesToDelete);
+      console.log('🗑️ تم حذف الملفات القديمة');
     }
 
-    // رفع الملفات الجديدة
+    // تحديد امتداد الملفات
+    const ext1 = contract1.name.split('.').pop() || 'docx';
+    const ext2 = contract2.name.split('.').pop() || 'docx';
+
+    // رفع الملفات الجديدة مباشرة في الـ bucket (بدون مجلد templates)
     const { error: error1 } = await supabaseAdmin
       .storage
-      .from('contracts')
-      .upload('templates/contract1.docx', contract1Buffer, {
+      .from(templateBucket)
+      .upload(`contract1.${ext1}`, contract1Buffer, {
         contentType: contract1.type,
         upsert: true
       });
 
     const { error: error2 } = await supabaseAdmin
       .storage
-      .from('contracts')
-      .upload('templates/contract2.docx', contract2Buffer, {
+      .from(templateBucket)
+      .upload(`contract2.${ext2}`, contract2Buffer, {
         contentType: contract2.type,
         upsert: true
       });
@@ -77,7 +114,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'حدث خطأ أثناء رفع العقود' }, { status: 500 });
     }
 
-    return NextResponse.json({ message: 'تم رفع العقود بنجاح' });
+    console.log('✅ تم رفع قوالب العقود بنجاح إلى:', templateBucket);
+
+    return NextResponse.json({ 
+      message: 'تم رفع قوالب العقود بنجاح',
+      bucket: templateBucket,
+      files: [`contract1.${ext1}`, `contract2.${ext2}`]
+    });
   } catch (error) {
     console.error('Contract upload error:', error);
     return NextResponse.json({ error: 'حدث خطأ أثناء رفع العقود' }, { status: 500 });

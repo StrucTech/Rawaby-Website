@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 
 interface OrderDetails {
   services: Array<{
@@ -38,7 +38,7 @@ const PaymentPage: React.FC = () => {
 
     // Verify token
     try {
-      jwtDecode(token);
+      jwt_decode(token);
     } catch (error) {
       Cookies.remove('token');
       router.push('/login?redirect=/payment');
@@ -73,12 +73,38 @@ const PaymentPage: React.FC = () => {
 
       if (!paymentMethod) {
         setError('يرجى اختيار طريقة الدفع');
+        setIsLoading(false);
         return;
       }
 
       if (paymentMethod === 'credit' || paymentMethod === 'mada') {
         if (!cardNumber || !expiryDate || !cvv) {
           setError('يرجى إدخال جميع بيانات البطاقة');
+          setIsLoading(false);
+          return;
+        }
+
+        // التحقق من صحة رقم البطاقة (يجب أن يكون 13-19 رقم)
+        const cardRegex = /^[0-9]{13,19}$/;
+        if (!cardRegex.test(cardNumber.replace(/\s/g, ''))) {
+          setError('يرجى إدخال رقم بطاقة صحيح');
+          setIsLoading(false);
+          return;
+        }
+
+        // التحقق من صحة تاريخ الانتهاء (MM/YY)
+        const expiryRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
+        if (!expiryRegex.test(expiryDate)) {
+          setError('يرجى إدخال تاريخ انتهاء صحيح بصيغة MM/YY');
+          setIsLoading(false);
+          return;
+        }
+
+        // التحقق من صحة CVV (3-4 أرقام)
+        const cvvRegex = /^[0-9]{3,4}$/;
+        if (!cvvRegex.test(cvv)) {
+          setError('يرجى إدخال رمز الأمان صحيح');
+          setIsLoading(false);
           return;
         }
       }
@@ -140,7 +166,9 @@ const PaymentPage: React.FC = () => {
         if (!response.ok) {
           const errorData = await response.text();
           console.error('Order creation failed:', response.status, errorData);
-          throw new Error(`فشل في إنشاء الطلب (${response.status}): ${errorData}`);
+          setError(`فشل في إنشاء الطلب: ${errorData || 'حدث خطأ غير متوقع'}`);
+          setIsLoading(false);
+          return;
         }
 
         const result = await response.json();
@@ -165,26 +193,9 @@ const PaymentPage: React.FC = () => {
     } catch (error: any) {
       console.error('Payment processing error:', error);
       setError(`حدث خطأ أثناء معالجة الدفع: ${error.message || 'خطأ غير محدد'}`);
-    } finally {
       setIsLoading(false);
     }
   };
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-red-600 mb-4">{error}</h2>
-          <button
-            onClick={() => router.push('/services')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
-          >
-            العودة إلى الخدمات
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (!orderDetails) {
     return (
@@ -205,6 +216,21 @@ const PaymentPage: React.FC = () => {
               الدفع
             </h1>
 
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center gap-3">
+                  <svg className="h-5 w-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-red-700 font-medium">{error}</p>
+                    <p className="text-red-600 text-sm mt-1">يرجى تصحيح البيانات أعلاه والمحاولة مجدداً</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Order Summary */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">ملخص الطلب</h2>
@@ -212,13 +238,13 @@ const PaymentPage: React.FC = () => {
                 {orderDetails.services.map((service) => (
                   <div key={service.id} className="flex justify-between items-center">
                     <span className="text-gray-600">{service.title}</span>
-                    <span className="font-semibold">{service.price} ريال</span>
+                    <span className="font-semibold">{service.price} جنيه مصري</span>
                   </div>
                 ))}
                 <div className="border-t pt-4 mt-4">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">المجموع الكلي:</span>
-                    <span className="text-xl font-bold text-blue-600">{orderDetails.totalPrice} ريال</span>
+                    <span className="text-xl font-bold text-blue-600">{orderDetails.totalPrice} جنيه مصري</span>
                   </div>
                 </div>
               </div>
@@ -270,10 +296,17 @@ const PaymentPage: React.FC = () => {
                     <input
                       type="text"
                       value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\s/g, '');
+                        setCardNumber(value.replace(/(\d{4})/g, '$1 ').trim());
+                      }}
                       placeholder="1234 5678 9012 3456"
-                      className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      maxLength={23}
+                      className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                        error && !cardNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
+                    <p className="text-xs text-gray-500 mt-1">13-19 أرقام</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -283,10 +316,20 @@ const PaymentPage: React.FC = () => {
                       <input
                         type="text"
                         value={expiryDate}
-                        onChange={(e) => setExpiryDate(e.target.value)}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, '');
+                          if (value.length >= 2) {
+                            value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                          }
+                          setExpiryDate(value);
+                        }}
                         placeholder="MM/YY"
-                        className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        maxLength={5}
+                        className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                          error && !expiryDate ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                       />
+                      <p className="text-xs text-gray-500 mt-1">الصيغة: MM/YY</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -295,10 +338,14 @@ const PaymentPage: React.FC = () => {
                       <input
                         type="text"
                         value={cvv}
-                        onChange={(e) => setCvv(e.target.value)}
+                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
                         placeholder="123"
-                        className="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        maxLength={4}
+                        className={`w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                          error && !cvv ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                       />
+                      <p className="text-xs text-gray-500 mt-1">3-4 أرقام</p>
                     </div>
                   </div>
                 </div>
@@ -309,12 +356,33 @@ const PaymentPage: React.FC = () => {
             <button
               onClick={handlePayment}
               disabled={isLoading}
-              className={`w-full bg-green-600 text-white py-3 px-4 rounded-md text-lg font-medium hover:bg-green-700 transition-colors duration-200 ${
-                isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              className={`w-full py-3 px-4 rounded-md text-lg font-medium transition-colors duration-200 ${
+                isLoading 
+                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                  : 'bg-green-600 text-white hover:bg-green-700'
               }`}
             >
-              {isLoading ? 'جاري معالجة الدفع...' : 'تأكيد الدفع'}
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  جاري معالجة الدفع...
+                </span>
+              ) : (
+                'تأكيد الدفع'
+              )}
             </button>
+
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => window.history.back()}
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              >
+                العودة إلى الخطوة السابقة
+              </button>
+            </div>
           </div>
         </div>
       </div>

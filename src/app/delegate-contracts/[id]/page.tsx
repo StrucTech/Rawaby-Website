@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import { useParams } from 'next/navigation';
 
 interface UserPayload {
@@ -35,7 +35,7 @@ export default function DelegateContractsPage() {
     const token = Cookies.get('token');
     if (token) {
       try {
-        const decodedToken = jwtDecode<UserPayload>(token);
+        const decodedToken = jwt_decode<UserPayload>(token);
         if (decodedToken.role === 'delegate') {
           setUserInfo(decodedToken);
         } else {
