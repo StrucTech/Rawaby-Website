@@ -185,7 +185,7 @@ export default function CartPage() {
                       <h4 className="text-sm font-medium text-gray-900">{service.title}</h4>
                       <p className="text-sm text-gray-500">{service.description}</p>
                       <p className="text-sm text-gray-500">المدة: {service.duration}</p>
-                      <p className="text-sm font-medium text-blue-600">{service.price} ريال</p>
+                      <p className="text-sm font-medium text-blue-600">{service.price} جنيه مصري</p>
                     </div>
                     <button
                       onClick={() => handleRemoveService(service.id)}
@@ -203,7 +203,7 @@ export default function CartPage() {
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
               <dt className="text-sm font-medium text-gray-500">المجموع</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                <span className="text-lg font-bold text-blue-600">{orderDetails?.totalPrice} ريال</span>
+                <span className="text-lg font-bold text-blue-600">{orderDetails?.totalPrice} جنيه مصري</span>
               </dd>
             </div>
           </div>

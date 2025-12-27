@@ -181,7 +181,7 @@ export default function SupervisorOrdersPage() {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-gray-900 mb-2">معلومات الدفع</h4>
                     <div className="space-y-1 text-sm">
-                      <p><span className="font-medium">المبلغ:</span> {order.total_price} ريال</p>
+                      <p><span className="font-medium">المبلغ:</span> {order.total_price} جنيه مصري</p>
                       {order.paymentInfo && (
                         <>
                           <p><span className="font-medium">طريقة الدفع:</span> {order.paymentInfo.method}</p>
@@ -207,7 +207,7 @@ export default function SupervisorOrdersPage() {
                               )}
                             </div>
                             <span className="text-lg font-semibold text-blue-600">
-                              {service.price} ريال
+                              {service.price} جنيه مصري
                             </span>
                           </div>
                         </div>

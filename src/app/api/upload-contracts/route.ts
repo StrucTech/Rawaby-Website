@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
+// =============================================
+// API لرفع العقود الممتلئة والموقعة من العملاء
+// يتم تخزينها في bucket: client-contracts
+// بتنسيق: [اسم-العميل-id]/order-[orderId]/filename
+// =============================================
+
 export async function POST(req: NextRequest) {
   try {
     // التحقق من المصادقة
@@ -20,11 +26,12 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = payload.userId;
-    console.log('Uploading contracts for user:', userId);
+    console.log('Uploading signed contracts for user:', userId);
 
     const formData = await req.formData();
     const contract1 = formData.get('contract1') as File;
     const contract2 = formData.get('contract2') as File;
+    const orderId = formData.get('orderId') as string;
 
     if (!contract1 || !contract2) {
       return NextResponse.json({ error: 'يجب رفع كلا الملفين' }, { status: 400 });
@@ -66,16 +73,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'خطأ في جلب بيانات المستخدم' }, { status: 500 });
     }
 
-    // إنشاء أسماء فريدة للملفات بتنسيق userid-name-datetime
-    const now = new Date();
-    const dateTimeString = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -5); // YYYY-MM-DD_HH-MM-SS
-    const userName = userData.name.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_'); // تنظيف الاسم من الرموز الخاصة
+    // =============================================
+    // إنشاء مسار التخزين الجديد
+    // bucket: client-contracts
+    // path: [اسم-العميل-id]/order-[orderId]/filename
+    // =============================================
+    const clientBucket = 'client-contracts';
     
+    // تنظيف اسم العميل للاستخدام في المسار
+    const cleanClientName = userData.name
+      .replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+    
+    // إنشاء مسار المجلد
+    const clientFolder = `${cleanClientName}-${userId.slice(0, 8)}`;
+    const orderFolder = orderId ? `order-${orderId.slice(0, 8)}` : `order-${Date.now()}`;
+    
+    // أسماء الملفات
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const contract1Extension = contract1.name.split('.').pop();
     const contract2Extension = contract2.name.split('.').pop();
     
-    const contract1FileName = `${userId}-${userName}-${dateTimeString}_contract1.${contract1Extension}`;
-    const contract2FileName = `${userId}-${userName}-${dateTimeString}_contract2.${contract2Extension}`;
+    const contract1Path = `${clientFolder}/${orderFolder}/contract1_signed_${timestamp}.${contract1Extension}`;
+    const contract2Path = `${clientFolder}/${orderFolder}/contract2_signed_${timestamp}.${contract2Extension}`;
 
     // تحويل الملفات إلى Buffer
     const contract1Buffer = Buffer.from(await contract1.arrayBuffer());
@@ -84,12 +106,12 @@ export async function POST(req: NextRequest) {
     // التحقق من وجود bucket العقود وإنشاؤه إذا لم يكن موجوداً
     try {
       const { data: buckets } = await supabaseAdmin.storage.listBuckets();
-      const contractsBucket = buckets?.find(b => b.name === 'contracts');
+      const clientContractsBucket = buckets?.find(b => b.name === clientBucket);
       
-      if (!contractsBucket) {
-        console.log('Creating contracts bucket...');
-        const { error: bucketError } = await supabaseAdmin.storage.createBucket('contracts', {
-          public: true,
+      if (!clientContractsBucket) {
+        console.log('Creating client-contracts bucket...');
+        const { error: bucketError } = await supabaseAdmin.storage.createBucket(clientBucket, {
+          public: false, // خاص - فقط للمستخدمين المصرح لهم
           allowedMimeTypes: [
             'application/pdf',
             'application/msword',
@@ -104,18 +126,19 @@ export async function POST(req: NextRequest) {
           console.error('Error creating bucket:', bucketError);
           throw new Error('فشل في إنشاء مساحة التخزين');
         }
+        console.log('✅ تم إنشاء bucket العقود الموقعة');
       }
     } catch (bucketCheckError) {
       console.error('Error checking/creating bucket:', bucketCheckError);
     }
 
     // رفع الملف الأول
-    console.log('Uploading contract1:', contract1FileName);
+    console.log('Uploading signed contract1:', contract1Path);
     const { data: data1, error: error1 } = await supabaseAdmin.storage
-      .from('contracts')
-      .upload(contract1FileName, contract1Buffer, {
+      .from(clientBucket)
+      .upload(contract1Path, contract1Buffer, {
         contentType: contract1.type,
-        upsert: true // السماح بالاستبدال إذا كان الملف موجود
+        upsert: true
       });
 
     if (error1) {
@@ -125,19 +148,19 @@ export async function POST(req: NextRequest) {
     console.log('Contract1 uploaded successfully:', data1);
 
     // رفع الملف الثاني
-    console.log('Uploading contract2:', contract2FileName);
+    console.log('Uploading signed contract2:', contract2Path);
     const { data: data2, error: error2 } = await supabaseAdmin.storage
-      .from('contracts')
-      .upload(contract2FileName, contract2Buffer, {
+      .from(clientBucket)
+      .upload(contract2Path, contract2Buffer, {
         contentType: contract2.type,
-        upsert: true // السماح بالاستبدال إذا كان الملف موجود
+        upsert: true
       });
 
     if (error2) {
       console.error('Error uploading contract2:', error2);
       // حذف الملف الأول في حالة فشل رفع الثاني
       try {
-        await supabaseAdmin.storage.from('contracts').remove([contract1FileName]);
+        await supabaseAdmin.storage.from(clientBucket).remove([contract1Path]);
       } catch (cleanupError) {
         console.error('Error cleaning up contract1:', cleanupError);
       }
@@ -145,19 +168,7 @@ export async function POST(req: NextRequest) {
     }
     console.log('Contract2 uploaded successfully:', data2);
 
-    // الحصول على روابط الملفات العامة (تعمل الآن لأن bucket عام)
-    const { data: url1 } = supabaseAdmin.storage
-      .from('contracts')
-      .getPublicUrl(contract1FileName);
-
-    const { data: url2 } = supabaseAdmin.storage
-      .from('contracts')
-      .getPublicUrl(contract2FileName);
-
     // حفظ معلومات العقود في جدول contracts
-    // التحقق من وجود order_id في الطلب
-    const formOrderId = formData.get('orderId') as string;
-    
     let contractData = null;
     try {
       console.log('Saving contract data to database...');
@@ -165,11 +176,13 @@ export async function POST(req: NextRequest) {
         .from('contracts')
         .insert({
           user_id: userId,
-          order_id: formOrderId || null, // ربط بالطلب إذا تم تمريره
-          contract1_url: url1.publicUrl,
-          contract2_url: url2.publicUrl,
+          order_id: orderId || null,
+          contract1_url: contract1Path, // حفظ المسار بدلاً من URL العام
+          contract2_url: contract2Path,
           contract1_filename: contract1.name,
           contract2_filename: contract2.name,
+          storage_bucket: clientBucket, // حفظ اسم الـ bucket
+          client_folder: clientFolder, // حفظ مجلد العميل
           status: 'uploaded'
         })
         .select()
@@ -181,10 +194,11 @@ export async function POST(req: NextRequest) {
         // محاولة بديلة: حفظ في جدول المستخدمين
         console.log('Trying alternative: saving to user profile...');
         const contractInfo = {
-          contract1_url: url1.publicUrl,
-          contract2_url: url2.publicUrl,
+          contract1_path: contract1Path,
+          contract2_path: contract2Path,
           contract1_filename: contract1.name,
           contract2_filename: contract2.name,
+          storage_bucket: clientBucket,
           upload_timestamp: new Date().toISOString()
         };
 
@@ -209,18 +223,23 @@ export async function POST(req: NextRequest) {
       console.error('Error in contract save process:', saveError);
     }
 
-    console.log('Contracts uploaded successfully');
+    console.log('✅ Signed contracts uploaded successfully to:', clientFolder);
 
     return NextResponse.json({
-      message: 'تم رفع العقود بنجاح',
+      message: 'تم رفع العقود الموقعة بنجاح',
       contractId: contractData?.id || `temp_${userId}_${Date.now()}`,
+      storage: {
+        bucket: clientBucket,
+        clientFolder: clientFolder,
+        orderFolder: orderFolder
+      },
       files: {
         contract1: {
-          url: url1.publicUrl,
+          path: contract1Path,
           filename: contract1.name
         },
         contract2: {
-          url: url2.publicUrl,
+          path: contract2Path,
           filename: contract2.name
         }
       },

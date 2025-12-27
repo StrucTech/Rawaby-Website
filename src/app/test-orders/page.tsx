@@ -133,7 +133,7 @@ export default function TestOrderPage() {
                         {order.metadata?.guardianName || 'غير محدد'}
                       </td>
                       <td className="px-4 py-2 text-sm">
-                        {order.total_price} ريال
+                        {order.total_price} جنيه مصري
                       </td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-1 text-xs rounded ${

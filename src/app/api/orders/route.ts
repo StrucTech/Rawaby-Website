@@ -370,11 +370,13 @@ export async function PUT(request: NextRequest) {
 
     const updateData: any = {};
     
-    if (assigned_supervisor_id) {
+    // السماح بتحديث المشرف حتى لو كان null أو undefined
+    if (assigned_supervisor_id !== undefined) {
       updateData.assigned_supervisor_id = assigned_supervisor_id;
       updateData.assigned_at = new Date().toISOString();
     }
-    if (assigned_delegate_id) {
+    // السماح بتحديث المندوب حتى لو كان null أو undefined
+    if (assigned_delegate_id !== undefined) {
       updateData.assigned_delegate_id = assigned_delegate_id;
       if (!updateData.assigned_at) updateData.assigned_at = new Date().toISOString();
     }

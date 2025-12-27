@@ -33,14 +33,13 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { title, description, price, duration_days, category, active } = body;
+    const { title, description, price, duration_days, active } = body;
 
     const updateData = {
       title,
       description,
-      price: parseFloat(price),
-      duration_days: parseInt(duration_days),
-      category,
+      price: price, // Keep as string/text
+      duration_days: duration_days, // Keep as string
       active,
       updated_at: new Date().toISOString()
     };

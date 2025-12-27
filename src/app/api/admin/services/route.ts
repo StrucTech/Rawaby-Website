@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, price, duration_days, category, active } = body;
+    const { title, description, price, duration_days, active } = body;
 
     // التحقق من البيانات المطلوبة
     if (!title || !description || !price || !duration_days) {
@@ -79,11 +79,9 @@ export async function POST(request: NextRequest) {
     const serviceData = {
       title,
       description,
-      price: parseFloat(price),
-      duration_days: parseInt(duration_days),
-      category: category || 'educational',
-      active: active !== false, // افتراضياً true
-      created_by: payload.userId
+      price: price, // Keep as string/text
+      duration_days: duration_days, // Keep as string
+      active: active !== false // افتراضياً true
     };
 
     const { data: service, error } = await supabaseAdmin

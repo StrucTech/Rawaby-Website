@@ -5,15 +5,42 @@ import Cookies from 'js-cookie';
 
 export default function SupervisorsPage() {
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', nationalId: '', password: '' });
+  const [form, setForm] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    nationalId: '', 
+    password: '',
+    isActive: true,
+    activeFrom: '',
+    activeTo: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [supervisors, setSupervisors] = useState<any[]>([]);
   const [fetching, setFetching] = useState(false);
   const [editModal, setEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ id: '', name: '', email: '', phone: '', nationalId: '' });
+  const [editForm, setEditForm] = useState({ 
+    id: '', 
+    name: '', 
+    email: '', 
+    phone: '', 
+    nationalId: '',
+    isActive: true,
+    activeFrom: '',
+    activeTo: ''
+  });
   const [editLoading, setEditLoading] = useState(false);
+
+  // التحقق من حالة النشاط بناءً على التاريخ
+  const checkActiveStatus = (user: any) => {
+    if (!user.is_active) return false;
+    const now = new Date();
+    if (user.active_from && new Date(user.active_from) > now) return false;
+    if (user.active_to && new Date(user.active_to) < now) return false;
+    return true;
+  };
 
   const fetchSupervisors = async () => {
     setFetching(true);
@@ -73,14 +100,19 @@ export default function SupervisorsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          isActive: form.isActive,
+          activeFrom: form.activeFrom || null,
+          activeTo: form.activeTo || null
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'حدث خطأ');
       } else {
         setSuccess('تم إضافة المشرف بنجاح');
-        setForm({ name: '', email: '', phone: '', nationalId: '', password: '' });
+        setForm({ name: '', email: '', phone: '', nationalId: '', password: '', isActive: true, activeFrom: '', activeTo: '' });
         fetchSupervisors();
         setTimeout(() => setShowModal(false), 1200);
       }
@@ -98,7 +130,10 @@ export default function SupervisorsPage() {
       name: supervisor.name,
       email: supervisor.email,
       phone: supervisor.phone,
-      nationalId: supervisor.national_id
+      nationalId: supervisor.national_id,
+      isActive: supervisor.is_active !== false,
+      activeFrom: supervisor.active_from ? supervisor.active_from.split('T')[0] : '',
+      activeTo: supervisor.active_to ? supervisor.active_to.split('T')[0] : ''
     });
     setEditModal(true);
   };
@@ -106,6 +141,11 @@ export default function SupervisorsPage() {
   // معالجة تغيير بيانات التعديل
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  // معالجة تغيير الـ checkbox في التعديل
+  const handleEditCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.checked });
   };
 
   // حفظ تعديلات المشرف
@@ -132,7 +172,10 @@ export default function SupervisorsPage() {
           name: editForm.name,
           email: editForm.email,
           phone: editForm.phone,
-          nationalId: editForm.nationalId
+          nationalId: editForm.nationalId,
+          isActive: editForm.isActive,
+          activeFrom: editForm.activeFrom || null,
+          activeTo: editForm.activeTo || null
         })
       });
 
@@ -168,20 +211,39 @@ export default function SupervisorsPage() {
             <th className="p-2">البريد الإلكتروني</th>
             <th className="p-2">رقم الجوال</th>
             <th className="p-2">الرقم القومي</th>
+            <th className="p-2">الحالة</th>
+            <th className="p-2">فترة النشاط</th>
             <th className="p-2">إجراءات</th>
           </tr>
         </thead>
         <tbody>
           {fetching ? (
-            <tr><td colSpan={5} className="text-center p-4">جاري التحميل...</td></tr>
+            <tr><td colSpan={7} className="text-center p-4">جاري التحميل...</td></tr>
           ) : supervisors.length === 0 ? (
-            <tr><td colSpan={5} className="text-center p-4">لا يوجد مشرفون</td></tr>
-          ) : supervisors.map((s) => (
-            <tr key={s.id}>
+            <tr><td colSpan={7} className="text-center p-4">لا يوجد مشرفون</td></tr>
+          ) : supervisors.map((s) => {
+            const isCurrentlyActive = checkActiveStatus(s);
+            return (
+            <tr key={s.id} className={!isCurrentlyActive ? 'bg-red-50' : ''}>
               <td className="p-2">{s.name}</td>
               <td className="p-2">{s.email}</td>
               <td className="p-2">{s.phone}</td>
               <td className="p-2">{s.national_id}</td>
+              <td className="p-2">
+                <span className={`px-2 py-1 rounded text-xs ${isCurrentlyActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {isCurrentlyActive ? '✓ نشط' : '✗ غير نشط'}
+                </span>
+              </td>
+              <td className="p-2 text-xs">
+                {s.active_from || s.active_to ? (
+                  <div>
+                    {s.active_from && <div>من: {new Date(s.active_from).toLocaleDateString('ar-EG')}</div>}
+                    {s.active_to && <div>إلى: {new Date(s.active_to).toLocaleDateString('ar-EG')}</div>}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">غير محدد</span>
+                )}
+              </td>
               <td className="p-2 flex gap-2">
                 <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={() => openEditModal(s)}>تعديل</button>
                 <button className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600" onClick={async () => {
@@ -198,14 +260,15 @@ export default function SupervisorsPage() {
                 }}>حذف</button>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
 
       {/* Modal إضافة مشرف */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded shadow-lg p-8 w-full max-w-md relative">
+          <div className="bg-white rounded shadow-lg p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-2 left-2 text-gray-500" onClick={() => setShowModal(false)}>&times;</button>
             <h3 className="text-xl font-bold mb-4">إضافة مشرف جديد</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -214,6 +277,44 @@ export default function SupervisorsPage() {
               <input name="phone" value={form.phone} onChange={handleChange} className="w-full border p-2 rounded" placeholder="رقم الجوال" required />
               <input name="nationalId" value={form.nationalId} onChange={handleChange} className="w-full border p-2 rounded" placeholder="الرقم القومي" required />
               <input name="password" value={form.password} onChange={handleChange} className="w-full border p-2 rounded" placeholder="كلمة المرور" type="password" required />
+              
+              {/* حالة النشاط */}
+              <div className="border rounded p-3 bg-gray-50">
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">مفعّل (نشط)</span>
+                </label>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">نشط من تاريخ</label>
+                    <input
+                      type="date"
+                      name="activeFrom"
+                      value={form.activeFrom}
+                      onChange={handleChange}
+                      className="w-full border p-2 rounded text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">نشط حتى تاريخ</label>
+                    <input
+                      type="date"
+                      name="activeTo"
+                      value={form.activeTo}
+                      onChange={handleChange}
+                      className="w-full border p-2 rounded text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">اترك الحقول فارغة للنشاط الدائم</p>
+              </div>
+              
               {error && <div className="text-red-600 text-center">{error}</div>}
               {success && <div className="text-green-600 text-center">{success}</div>}
               <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded w-full" disabled={loading}>
@@ -227,7 +328,7 @@ export default function SupervisorsPage() {
       {/* Modal تعديل المشرف */}
       {editModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded shadow-lg p-8 w-full max-w-md relative">
+          <div className="bg-white rounded shadow-lg p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-2 left-2 text-gray-500 text-xl" onClick={() => setEditModal(false)}>&times;</button>
             <h3 className="text-xl font-bold mb-4">تعديل بيانات المشرف</h3>
             <form onSubmit={handleEditSubmit}>
@@ -264,7 +365,7 @@ export default function SupervisorsPage() {
                   required
                 />
               </div>
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">الرقم القومي</label>
                 <input
                   type="text"
@@ -275,6 +376,45 @@ export default function SupervisorsPage() {
                   required
                 />
               </div>
+              
+              {/* حالة النشاط */}
+              <div className="mb-6 border rounded p-3 bg-gray-50">
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    name="isActive"
+                    checked={editForm.isActive}
+                    onChange={handleEditCheckboxChange}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">مفعّل (نشط)</span>
+                </label>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">نشط من تاريخ</label>
+                    <input
+                      type="date"
+                      name="activeFrom"
+                      value={editForm.activeFrom}
+                      onChange={handleEditChange}
+                      className="w-full border p-2 rounded text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">نشط حتى تاريخ</label>
+                    <input
+                      type="date"
+                      name="activeTo"
+                      value={editForm.activeTo}
+                      onChange={handleEditChange}
+                      className="w-full border p-2 rounded text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">اترك الحقول فارغة للنشاط الدائم</p>
+              </div>
+              
               {error && <div className="text-red-500 text-sm mb-4">{error}</div>}
               {success && <div className="text-green-500 text-sm mb-4">{success}</div>}
               <div className="flex gap-2">

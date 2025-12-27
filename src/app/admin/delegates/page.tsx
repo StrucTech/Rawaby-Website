@@ -4,15 +4,42 @@ import Cookies from 'js-cookie';
 
 export default function DelegatesPage() {
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', nationalId: '', password: '' });
+  const [form, setForm] = useState({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    nationalId: '', 
+    password: '',
+    isActive: true,
+    activeFrom: '',
+    activeTo: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [delegates, setDelegates] = useState<any[]>([]);
   const [fetching, setFetching] = useState(false);
   const [editModal, setEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ id: '', name: '', email: '', phone: '', nationalId: '' });
+  const [editForm, setEditForm] = useState({ 
+    id: '', 
+    name: '', 
+    email: '', 
+    phone: '', 
+    nationalId: '',
+    isActive: true,
+    activeFrom: '',
+    activeTo: ''
+  });
   const [editLoading, setEditLoading] = useState(false);
+
+  // التحقق من حالة النشاط بناءً على التاريخ
+  const checkActiveStatus = (user: any) => {
+    if (!user.is_active) return false;
+    const now = new Date();
+    if (user.active_from && new Date(user.active_from) > now) return false;
+    if (user.active_to && new Date(user.active_to) < now) return false;
+    return true;
+  };
 
   const fetchDelegates = async () => {
     setFetching(true);
@@ -72,14 +99,19 @@ export default function DelegatesPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          isActive: form.isActive,
+          activeFrom: form.activeFrom || null,
+          activeTo: form.activeTo || null
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'حدث خطأ');
       } else {
         setSuccess('تم إضافة المندوب بنجاح');
-        setForm({ name: '', email: '', phone: '', nationalId: '', password: '' });
+        setForm({ name: '', email: '', phone: '', nationalId: '', password: '', isActive: true, activeFrom: '', activeTo: '' });
         fetchDelegates();
         setTimeout(() => setShowModal(false), 1200);
       }
@@ -97,7 +129,10 @@ export default function DelegatesPage() {
       name: delegate.name,
       email: delegate.email,
       phone: delegate.phone,
-      nationalId: delegate.national_id
+      nationalId: delegate.national_id,
+      isActive: delegate.is_active !== false,
+      activeFrom: delegate.active_from ? delegate.active_from.split('T')[0] : '',
+      activeTo: delegate.active_to ? delegate.active_to.split('T')[0] : ''
     });
     setEditModal(true);
   };
@@ -105,6 +140,11 @@ export default function DelegatesPage() {
   // معالجة تغيير بيانات التعديل
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  // معالجة تغيير الـ checkbox في التعديل
+  const handleEditCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.checked });
   };
 
   // حفظ تعديلات المندوب
@@ -131,7 +171,10 @@ export default function DelegatesPage() {
           name: editForm.name,
           email: editForm.email,
           phone: editForm.phone,
-          nationalId: editForm.nationalId
+          nationalId: editForm.nationalId,
+          is_active: editForm.isActive,
+          active_from: editForm.activeFrom || null,
+          active_to: editForm.activeTo || null
         })
       });
 
@@ -155,7 +198,7 @@ export default function DelegatesPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-10">
+    <div className="max-w-5xl mx-auto py-10">
       <h2 className="text-2xl font-bold mb-6">إدارة المندوبين</h2>
       <div className="mb-4">
         <button className="bg-green-600 text-white px-4 py-2 rounded" onClick={() => setShowModal(true)}>إضافة مندوب جديد</button>
@@ -167,20 +210,40 @@ export default function DelegatesPage() {
             <th className="p-2">البريد الإلكتروني</th>
             <th className="p-2">رقم الجوال</th>
             <th className="p-2">الرقم القومي</th>
+            <th className="p-2">الحالة</th>
+            <th className="p-2">فترة النشاط</th>
             <th className="p-2">إجراءات</th>
           </tr>
         </thead>
         <tbody>
           {fetching ? (
-            <tr><td colSpan={5} className="text-center p-4">جاري التحميل...</td></tr>
+            <tr><td colSpan={7} className="text-center p-4">جاري التحميل...</td></tr>
           ) : delegates.length === 0 ? (
-            <tr><td colSpan={5} className="text-center p-4">لا يوجد مندوبون</td></tr>
-          ) : delegates.map((d) => (
-            <tr key={d.id}>
+            <tr><td colSpan={7} className="text-center p-4">لا يوجد مندوبون</td></tr>
+          ) : delegates.map((d) => {
+            const isCurrentlyActive = checkActiveStatus(d);
+            return (
+            <tr key={d.id} className={!isCurrentlyActive ? 'bg-red-50' : ''}>
               <td className="p-2">{d.name}</td>
               <td className="p-2">{d.email}</td>
               <td className="p-2">{d.phone}</td>
               <td className="p-2">{d.national_id}</td>
+              <td className="p-2">
+                {isCurrentlyActive ? (
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">نشط</span>
+                ) : (
+                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">غير نشط</span>
+                )}
+              </td>
+              <td className="p-2 text-sm">
+                {d.active_from || d.active_to ? (
+                  <span>
+                    {d.active_from ? new Date(d.active_from).toLocaleDateString('ar-EG') : 'غير محدد'} - {d.active_to ? new Date(d.active_to).toLocaleDateString('ar-EG') : 'غير محدد'}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">غير محدد</span>
+                )}
+              </td>
               <td className="p-2 flex gap-2">
                 <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={() => openEditModal(d)}>تعديل</button>
                 <button className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600" onClick={async () => {
@@ -197,14 +260,14 @@ export default function DelegatesPage() {
                 }}>حذف</button>
               </td>
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
 
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded shadow-lg p-8 w-full max-w-md relative">
+          <div className="bg-white rounded shadow-lg p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-2 left-2 text-gray-500" onClick={() => setShowModal(false)}>&times;</button>
             <h3 className="text-xl font-bold mb-4">إضافة مندوب جديد</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -213,6 +276,42 @@ export default function DelegatesPage() {
               <input name="phone" value={form.phone} onChange={handleChange} className="w-full border p-2 rounded" placeholder="رقم الجوال" required />
               <input name="nationalId" value={form.nationalId} onChange={handleChange} className="w-full border p-2 rounded" placeholder="الرقم القومي" required />
               <input name="password" value={form.password} onChange={handleChange} className="w-full border p-2 rounded" placeholder="كلمة المرور" type="password" required />
+              
+              {/* حالة النشاط */}
+              <div className="border-t pt-3 mt-3">
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">نشط</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">تاريخ البداية</label>
+                    <input
+                      type="date"
+                      name="activeFrom"
+                      value={form.activeFrom}
+                      onChange={handleChange}
+                      className="w-full border p-2 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">تاريخ النهاية</label>
+                    <input
+                      type="date"
+                      name="activeTo"
+                      value={form.activeTo}
+                      onChange={handleChange}
+                      className="w-full border p-2 rounded"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {error && <div className="text-red-600 text-center">{error}</div>}
               {success && <div className="text-green-600 text-center">{success}</div>}
               <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded w-full" disabled={loading}>
@@ -274,6 +373,43 @@ export default function DelegatesPage() {
                   required
                 />
               </div>
+
+              {/* حالة النشاط */}
+              <div className="border-t pt-4 mb-4">
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    name="isActive"
+                    checked={editForm.isActive}
+                    onChange={handleEditCheckboxChange}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">نشط</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">تاريخ البداية</label>
+                    <input
+                      type="date"
+                      name="activeFrom"
+                      value={editForm.activeFrom}
+                      onChange={handleEditChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">تاريخ النهاية</label>
+                    <input
+                      type="date"
+                      name="activeTo"
+                      value={editForm.activeTo}
+                      onChange={handleEditChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {error && <div className="text-red-500 text-sm mb-4">{error}</div>}
               {success && <div className="text-green-500 text-sm mb-4">{success}</div>}
               <div className="flex gap-2">

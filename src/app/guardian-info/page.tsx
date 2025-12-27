@@ -411,7 +411,7 @@ export default function GuardianInfoPage() {
             </div>
             <div>
               <p className="text-sm text-gray-600">السعر الإجمالي:</p>
-              <p className="font-semibold text-blue-600">{orderDetails.totalPrice} ريال</p>
+              <p className="font-semibold text-blue-600">{orderDetails.totalPrice} جنيه مصري</p>
             </div>
           </div>
         </div>

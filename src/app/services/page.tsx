@@ -160,6 +160,29 @@ const ServicesPage: React.FC = () => {
           )}
         </div>
 
+        {/* Organizational Notes */}
+        <div className="mb-8 bg-blue-50 border-r-4 border-blue-600 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">ملاحظات تنظيمية</h3>
+          <ul className="space-y-2 text-blue-800">
+            <li className="flex items-start">
+              <span className="ml-3 text-blue-600 font-bold">•</span>
+              <span>لا يتم إدراج تصديق الشهادات كخدمة أساسية إلا عند الطلب فقط</span>
+            </li>
+            <li className="flex items-start">
+              <span className="ml-3 text-blue-600 font-bold">•</span>
+              <span>لا تشمل الخدمات أي تعامل تعاقدي مباشر مع الجامعات</span>
+            </li>
+            <li className="flex items-start">
+              <span className="ml-3 text-blue-600 font-bold">•</span>
+              <span>جميع الخدمات تقدم من خلال شركة الروابي وبعقود وفواتير ضريبية</span>
+            </li>
+            <li className="flex items-start">
+              <span className="ml-3 text-blue-600 font-bold">•</span>
+              <span>الأسعار تحدد بشكل منفصل حسب الجامعة ونوع الكلية</span>
+            </li>
+          </ul>
+        </div>
+
         {/* Services Grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => (
@@ -173,7 +196,7 @@ const ServicesPage: React.FC = () => {
                     {service.category}
                   </span>
                   <span className="text-2xl font-bold text-gray-900">
-                    {service.price} ريال
+                    {service.price} جنيه مصري
                   </span>
                 </div>
                 

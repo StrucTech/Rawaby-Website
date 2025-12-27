@@ -13,6 +13,8 @@ interface UserOrder {
   services: string[];
   supervisor_id?: string;
   delegate_id?: string;
+  assigned_supervisor_id?: string;
+  assigned_delegate_id?: string;
   guardianInfo?: {
     fullName: string;
     mobileNumber: string;
@@ -90,11 +92,75 @@ export default function MyOrdersPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'new':
-      case 'pending':
+  // دالة للحصول على الحالة المعروضة للعميل
+  // العميل لا يرى "تعيين مشرف" أو "تعيين مندوب" - بدلاً من ذلك يرى "تحت المراجعة"
+  const getClientVisibleStatus = (order: any) => {
+    const status = order.status;
+    const hasSupervisor = !!order.assigned_supervisor_id;
+    const hasDelegate = !!order.assigned_delegate_id;
+    
+    // إذا كانت الحالة "تعيين مشرف" أو "تعيين مندوب" - إخفاءها عن العميل
+    if (status === 'تعيين مشرف' || status === 'تعيين مندوب' || 
+        status === 'new' || status === 'pending' || status === 'assigned') {
+      return 'تحت المراجعة';
+    }
+    
+    // باقي الحالات تظهر كما هي
+    return status;
+  };
+
+  const getStatusText = (status: string, order?: any) => {
+    // إذا كان هناك order، نستخدم الحالة المرئية للعميل
+    const visibleStatus = order ? getClientVisibleStatus(order) : status;
+    
+    switch (visibleStatus) {
+      // الحالة المجمعة للعميل
+      case 'تحت المراجعة':
+        return 'تحت المراجعة';
+      // الحالات التي يراها العميل
+      case 'تحت الإجراء':
+        return 'قيد التنفيذ';
+      case 'مطلوب بيانات إضافية أو مرفقات':
+        return 'مطلوب بيانات إضافية';
+      case 'بانتظار رد العميل':
+        return 'بانتظار ردك';
+      case 'تم الانتهاء بنجاح':
+        return 'مكتمل ✓';
+      // الحالات القديمة للتوافقية
+      case 'in-progress':
+      case 'in progress':
+      case 'in_progress':
+        return 'قيد التنفيذ';
+      case 'completed':
+      case 'done':
+        return 'مكتمل';
+      case 'cancelled':
+        return 'ملغي';
+      case 'paid':
+        return 'تم الدفع';
+      default:
+        return visibleStatus;
+    }
+  };
+
+  const getStatusColor = (status: string, order?: any) => {
+    // إذا كان هناك order، نستخدم الحالة المرئية للعميل
+    const visibleStatus = order ? getClientVisibleStatus(order) : status;
+    
+    switch (visibleStatus) {
+      // الحالة المجمعة للعميل
+      case 'تحت المراجعة':
         return 'bg-blue-100 text-blue-800';
+      // الحالات التي يراها العميل
+      case 'تحت الإجراء':
+        return 'bg-blue-100 text-blue-800';
+      case 'مطلوب بيانات إضافية أو مرفقات':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'بانتظار رد العميل':
+        return 'bg-purple-100 text-purple-800';
+      case 'تم الانتهاء بنجاح':
+        return 'bg-green-100 text-green-800';
+      // الحالات القديمة للتوافقية
       case 'in-progress':
       case 'in progress':
       case 'in_progress':
@@ -111,37 +177,24 @@ export default function MyOrdersPage() {
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'new':
-      case 'pending':
-        return 'طلب جديد';
-      case 'in-progress':
-      case 'in progress':
-      case 'in_progress':
-        return 'قيد التنفيذ';
-      case 'completed':
-      case 'done':
-        return 'مكتمل';
-      case 'cancelled':
-        return 'ملغي';
-      case 'paid':
-        return 'تم الدفع';
-      default:
-        return status;
-    }
-  };
-
-  const getStatusDescription = (status: string, hasSupervisor: boolean, hasDelegate: boolean) => {
-    switch (status) {
-      case 'new':
-        if (hasDelegate) {
-          return 'تم تعيين مندوب لطلبك وسيتم التواصل معك قريباً';
-        } else if (hasSupervisor) {
-          return 'تم تعيين مشرف لطلبك ويتم البحث عن مندوب مناسب';
-        } else {
-          return 'طلبك تحت المراجعة وسيتم تعيين فريق العمل قريباً';
-        }
+  const getStatusDescription = (status: string, hasSupervisor: boolean, hasDelegate: boolean, order?: any) => {
+    // إذا كان هناك order، نستخدم الحالة المرئية للعميل
+    const visibleStatus = order ? getClientVisibleStatus(order) : status;
+    
+    switch (visibleStatus) {
+      // الحالة المجمعة للعميل - "تحت المراجعة"
+      case 'تحت المراجعة':
+        return 'طلبك تحت المراجعة وسيتم تعيين فريق العمل قريباً';
+      // الحالات التي يراها العميل
+      case 'تحت الإجراء':
+        return 'يتم العمل على طلبك حالياً من قبل فريقنا المختص';
+      case 'مطلوب بيانات إضافية أو مرفقات':
+        return 'يرجى تقديم البيانات أو المرفقات المطلوبة لإكمال طلبك';
+      case 'بانتظار رد العميل':
+        return 'فريقنا ينتظر ردك أو تأكيدك لمتابعة الطلب';
+      case 'تم الانتهاء بنجاح':
+        return 'تم إنجاز طلبك بنجاح! شكراً لثقتك بنا ✓';
+      // الحالات القديمة للتوافقية
       case 'in progress':
       case 'in-progress':
         return 'يتم العمل على طلبك حالياً من قبل فريقنا المختص';
@@ -259,11 +312,11 @@ export default function MyOrdersPage() {
                       </p>
                     </div>
                     <div className="text-left">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                        {getStatusText(order.status)}
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status, order)}`}>
+                        {getStatusText(order.status, order)}
                       </span>
                       <p className="text-lg font-bold text-gray-900 mt-2">
-                        {order.total_price} ريال
+                        {order.total_price} جنيه مصري
                       </p>
                     </div>
                   </div>
@@ -274,14 +327,14 @@ export default function MyOrdersPage() {
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
                       <div className={`w-3 h-3 rounded-full mt-1 ${
-                        (order.status === 'completed' || order.status === 'done') ? 'bg-green-500' :
-                        (order.status === 'in-progress' || order.status === 'in progress' || order.status === 'in_progress') ? 'bg-yellow-500' :
+                        (order.status === 'completed' || order.status === 'done' || order.status === 'تم الانتهاء بنجاح') ? 'bg-green-500' :
+                        (order.status === 'تحت الإجراء' || order.status === 'in-progress' || order.status === 'in progress' || order.status === 'in_progress') ? 'bg-yellow-500' :
                         order.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-500'
                       }`}></div>
                     </div>
                     <div className="mr-3">
                       <p className="text-sm text-gray-700">
-                        {getStatusDescription(order.status, !!order.supervisor_id, !!order.delegate_id)}
+                        {getStatusDescription(order.status, !!order.assigned_supervisor_id, !!order.assigned_delegate_id, order)}
                       </p>
                     </div>
                   </div>
@@ -303,7 +356,7 @@ export default function MyOrdersPage() {
                                   <p className="text-sm text-gray-600">{service.description}</p>
                                 )}
                               </div>
-                              <span className="font-semibold text-blue-600">{service.price} ريال</span>
+                              <span className="font-semibold text-blue-600">{service.price} جنيه مصري</span>
                             </div>
                           ))}
                         </div>

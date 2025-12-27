@@ -358,13 +358,13 @@ export default function ContractPage() {
                 <ul className="list-disc mr-6 mb-4">
                   {orderDetails?.services.map((service) => (
                     <li key={service.id} className="mb-2">
-                      {service.title} - {service.duration} - {service.price} ريال
+                      {service.title} - {service.duration} - {service.price} جنيه مصري
                     </li>
                   ))}
                 </ul>
 
                 <h4 className="text-lg font-semibold mb-4">المجموع الكلي:</h4>
-                <p className="mb-4 font-semibold">{orderDetails?.totalPrice} ريال</p>
+                <p className="mb-4 font-semibold">{orderDetails?.totalPrice} جنيه مصري</p>
 
                 <h4 className="text-lg font-semibold mb-4">شروط وأحكام:</h4>
                 <ol className="list-decimal mr-6 mb-4">

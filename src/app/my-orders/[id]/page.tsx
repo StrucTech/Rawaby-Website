@@ -217,7 +217,7 @@ export default function OrderDetailPage() {
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">المبلغ الإجمالي</p>
-                <p className="text-2xl font-bold text-blue-600">{order.total_price} ريال</p>
+                <p className="text-2xl font-bold text-blue-600">{order.total_price} جنيه مصري</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-600">عدد الخدمات</p>
@@ -245,7 +245,7 @@ export default function OrderDetailPage() {
                         )}
                       </div>
                       <div className="text-left mr-4">
-                        <span className="text-xl font-bold text-blue-600">{service.price} ريال</span>
+                        <span className="text-xl font-bold text-blue-600">{service.price} جنيه مصري</span>
                       </div>
                     </div>
                   </div>
@@ -324,7 +324,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-600">المبلغ المدفوع</label>
-                  <p className="text-gray-900 mt-1 font-semibold">{order.paymentInfo.amount} ريال</p>
+                  <p className="text-gray-900 mt-1 font-semibold">{order.paymentInfo.amount} جنيه مصري</p>
                 </div>
               </div>
             </div>

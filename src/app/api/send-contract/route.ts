@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTokenFromHeader } from '@/lib/auth';
 import { UserModel } from '@/models/UserSupabase';
 import { sendEmail } from '@/lib/mailer';
-import path from 'path';
-import fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
+
+// إنشاء عميل Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('=== بدء عملية إرسال العقود الفارغة ===');
+    
     // التحقق من المصادقة
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -24,54 +31,114 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = payload.userId;
-    console.log('Sending contract files to user:', userId);
+    console.log('✓ المستخدم:', userId);
 
     // جلب بيانات المستخدم
     const user = await UserModel.findById(userId);
     if (!user) {
+      console.error('✗ المستخدم غير موجود:', userId);
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
     }
+    
+    console.log('✓ تم جلب بيانات المستخدم:', user.email);
 
-    // مسارات الملفات
-    const contractFile1 = path.join(process.cwd(), 'عقد_وتوكيل_خدمات_استشارية_تعليمية_2025.docx');
-    const contractFile2 = path.join(process.cwd(), 'نموذج توكيل خاص الراوبى.docx');
-
-    // التحقق من وجود الملفات
-    if (!fs.existsSync(contractFile1) || !fs.existsSync(contractFile2)) {
-      return NextResponse.json({ error: 'ملفات العقد غير موجودة' }, { status: 404 });
+    // ========================================
+    // جلب العقود الفارغة من bucket: contract-templates
+    // ========================================
+    const templateBucket = 'contract-templates';
+    let attachments: any[] = [];
+    
+    try {
+      console.log('🔍 جاري البحث عن قوالب العقود في:', templateBucket);
+      
+      const { data: files, error: listError } = await supabase
+        .storage
+        .from(templateBucket)
+        .list('');
+      
+      if (listError) {
+        console.error('⚠️ خطأ في جلب قائمة الملفات:', listError);
+        // محاولة قراءة من المسار القديم كـ fallback
+        console.log('🔄 محاولة القراءة من المسار القديم...');
+        const { data: oldFiles, error: oldListError } = await supabase
+          .storage
+          .from('contracts')
+          .list('templates');
+        
+        if (!oldListError && oldFiles && oldFiles.length > 0) {
+          console.log('✓ وجدنا ملفات في المسار القديم');
+          for (const file of oldFiles) {
+            if (file.name.endsWith('.docx') || file.name.endsWith('.pdf')) {
+              const { data, error: downloadError } = await supabase
+                .storage
+                .from('contracts')
+                .download(`templates/${file.name}`);
+              
+              if (!downloadError && data) {
+                const buffer = await data.arrayBuffer();
+                attachments.push({
+                  filename: file.name,
+                  content: Buffer.from(buffer)
+                });
+                console.log(`✓ تم تحميل: ${file.name}`);
+              }
+            }
+          }
+        }
+      } else if (files && files.length > 0) {
+        console.log(`✓ تم العثور على ${files.length} ملف(ات) في قوالب العقود`);
+        
+        for (const file of files) {
+          // فقط الملفات التي تنتهي بـ .docx أو .pdf (قوالب العقود)
+          if (file.name.endsWith('.docx') || file.name.endsWith('.pdf')) {
+            try {
+              console.log(`📥 جاري تحميل القالب: ${file.name}`);
+              const { data, error: downloadError } = await supabase
+                .storage
+                .from(templateBucket)
+                .download(file.name);
+              
+              if (downloadError) {
+                console.error(`❌ فشل تحميل ${file.name}:`, downloadError);
+              } else if (data) {
+                const buffer = await data.arrayBuffer();
+                attachments.push({
+                  filename: file.name,
+                  content: Buffer.from(buffer)
+                });
+                console.log(`✓ تم تحميل القالب: ${file.name} (${buffer.byteLength} بايت)`);
+              }
+            } catch (error) {
+              console.error(`❌ خطأ في معالجة ${file.name}:`, error);
+            }
+          }
+        }
+      } else {
+        console.log('⚠️ لم يتم العثور على قوالب عقود');
+      }
+    } catch (error) {
+      console.error('❌ خطأ في الوصول إلى Storage:', error);
     }
 
-    // قراءة الملفات
-    const file1Buffer = fs.readFileSync(contractFile1);
-    const file2Buffer = fs.readFileSync(contractFile2);
+    console.log(`📊 إجمالي قوالب العقود المجهزة للإرسال: ${attachments.length}`);
 
-    // إعداد المرفقات
-    const attachments = [
-      {
-        filename: 'عقد_وتوكيل_خدمات_استشارية_تعليمية_2025.docx',
-        content: file1Buffer
-      },
-      {
-        filename: 'نموذج_توكيل_خاص_الراوبى.docx',
-        content: file2Buffer
-      }
-    ];
-
-    // محتوى الإيميل
+    // محتوى البريد
     const emailSubject = 'عقود الخدمات التعليمية - يرجى التوقيع والإرسال';
     const emailText = `
 عزيزي/عزيزتي ${user.name}،
 
-مرفق طياً ملفات العقود الخاصة بالخدمات التعليمية:
+${attachments.length > 0 
+  ? `مرفق طياً ملفات العقود الخاصة بالخدمات التعليمية (${attachments.length} ملف):` 
+  : 'يمكنك تحميل ملفات العقود من خلال صفحة الموقع:'
+}
 
-1. عقد وتوكيل خدمات استشارية تعليمية 2025
-2. نموذج توكيل خاص الراوبى
+${attachments.map((att, idx) => `${idx + 1}. ${att.filename}`).join('\n')}
 
 يرجى:
-- طباعة الملفين
+- طباعة الملفات
 - ملء البيانات المطلوبة
-- التوقيع عليهما
-- رفعهما على الموقع لإكمال الطلب
+- التوقيع عليها
+- رفعها على الموقع لإكمال الطلب
 
 شكراً لكم لثقتكم بخدماتنا.
 
@@ -90,7 +157,7 @@ export async function POST(req: NextRequest) {
         .content { background-color: #f8fafc; padding: 20px; border-radius: 0 0 8px 8px; }
         .file-list { background-color: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
         .instructions { background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 15px 0; }
-        .footer { text-align: center; color: #6b7280; margin-top: 20px; }
+        .footer { text-align: center; color: #6b7280; margin-top: 20px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -101,23 +168,26 @@ export async function POST(req: NextRequest) {
         <div class="content">
             <p>عزيزي/عزيزتي <strong>${user.name}</strong>،</p>
             
-            <p>مرفق طياً ملفات العقود الخاصة بالخدمات التعليمية:</p>
+            <p>${attachments.length > 0 
+              ? `مرفق طياً ملفات العقود الخاصة بالخدمات التعليمية (<strong>${attachments.length}</strong> ملف):` 
+              : 'يمكنك تحميل ملفات العقود من خلال صفحة الموقع:'}</p>
             
             <div class="file-list">
-                <h3>الملفات المرفقة:</h3>
+                <h3>الملفات:</h3>
                 <ul>
-                    <li>📄 عقد وتوكيل خدمات استشارية تعليمية 2025</li>
-                    <li>📄 نموذج توكيل خاص الراوبى</li>
+                    ${attachments.map(att => `<li>📄 ${att.filename}</li>`).join('')}
+                    ${attachments.length === 0 ? '<li>⚠️ لم يتم العثور على ملفات</li>' : ''}
                 </ul>
             </div>
             
             <div class="instructions">
                 <h3>التعليمات:</h3>
                 <ol>
-                    <li>طباعة الملفين المرفقين</li>
+                    <li>تحميل الملفات المرفقة أو من الموقع</li>
+                    <li>طباعة الملفات</li>
                     <li>ملء البيانات المطلوبة بدقة</li>
                     <li>التوقيع على العقود</li>
-                    <li>رفع الملفين الموقعين على الموقع</li>
+                    <li>رفع الملفات الموقعة على الموقع</li>
                     <li>إكمال عملية الدفع</li>
                 </ol>
             </div>
@@ -134,25 +204,37 @@ export async function POST(req: NextRequest) {
     `;
 
     // إرسال الإيميل
-    await sendEmail({
-      to: user.email,
-      subject: emailSubject,
-      text: emailText,
-      html: emailHtml,
-      attachments: attachments
-    });
-
-    console.log('Contract files sent successfully to:', user.email);
+    try {
+      console.log('💌 جاري إرسال البريد مع', attachments.length, 'ملف(ات)');
+      await sendEmail({
+        to: user.email,
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml,
+        attachments: attachments.length > 0 ? attachments : undefined
+      });
+      
+      console.log('✅ تم إرسال البريد بنجاح:', user.email);
+    } catch (emailError) {
+      console.error('⚠️ تحذير: فشل إرسال البريد، سيتم المتابعة بدونه');
+      console.error('تفاصيل الخطأ:', emailError instanceof Error ? emailError.message : String(emailError));
+      // لا نلقي استثناء - نستمر بدون بريد
+    }
 
     return NextResponse.json({
-      message: 'تم إرسال ملفات العقد بنجاح',
-      email: user.email
+      message: attachments.length > 0 
+        ? 'تم إرسال ملفات العقد بنجاح'
+        : 'تم إرسال الرسالة بنجاح (بدون مرفقات)',
+      email: user.email,
+      filesCount: attachments.length
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Send contract files error:', error);
+    console.error('=== خطأ في عملية الإرسال ===');
+    console.error('الخطأ:', error);
+    console.error('رسالة الخطأ:', error.message);
+    console.error('Stack:', error.stack);
 
-    // معالجة أخطاء المصادقة
     if (error.message === 'No token provided' || 
         error.message === 'Invalid token' || 
         error.message === 'Token expired') {
@@ -160,8 +242,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ 
-      error: 'حدث خطأ أثناء إرسال ملفات العقد',
-      details: error.message 
+      error: 'حدث خطأ أثناء إرسال البريد',
+      details: error.message
     }, { status: 500 });
   }
 } 

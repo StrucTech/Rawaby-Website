@@ -9,6 +9,9 @@ export default function AdminHomePage() {
         <Link href="/admin/supervisors" className="block bg-blue-600 text-white rounded p-6 text-xl text-center hover:bg-blue-700 transition">إدارة المشرفين</Link>
         <Link href="/admin/delegates" className="block bg-green-600 text-white rounded p-6 text-xl text-center hover:bg-green-700 transition">إدارة المندوبين</Link>
         <Link href="/admin/tasks" className="block bg-purple-600 text-white rounded p-6 text-xl text-center hover:bg-purple-700 transition">توزيع ومتابعة المهام</Link>
+        <Link href="/admin/contracts" className="block bg-indigo-600 text-white rounded p-6 text-xl text-center hover:bg-indigo-700 transition">📄 إدارة قوالب العقود</Link>
+        <Link href="/admin/site-settings" className="block bg-teal-600 text-white rounded p-6 text-xl text-center hover:bg-teal-700 transition">⚙️ إعدادات الموقع (من نحن + Footer)</Link>
+        <Link href="/admin/data-requests" className="block bg-yellow-600 text-white rounded p-6 text-xl text-center hover:bg-yellow-700 transition">📬 إدارة الرسائل (المشرفين والعملاء)</Link>
       </div>
     </div>
   );

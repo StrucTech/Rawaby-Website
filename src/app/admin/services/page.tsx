@@ -13,7 +13,6 @@ export default function AdminServicesPage() {
     description: '',
     price: '',
     duration_days: '',
-    category: 'educational',
     active: true
   });
 
@@ -81,7 +80,6 @@ export default function AdminServicesPage() {
       description: service.description,
       price: service.price.toString(),
       duration_days: service.duration_days.toString(),
-      category: service.category,
       active: service.active
     });
     setShowForm(true);
@@ -113,7 +111,6 @@ export default function AdminServicesPage() {
       description: '',
       price: '',
       duration_days: '',
-      category: 'educational',
       active: true
     });
     setEditingService(null);
@@ -173,9 +170,10 @@ export default function AdminServicesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">السعر (ريال)</label>
+                  <label className="block text-sm font-medium mb-1">السعر (جنيه مصري)</label>
                   <input
-                    type="number"
+                    type="text"
+                    placeholder="مثلاً: 500 أو تحديث حسب الطلب"
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: e.target.value})}
                     className="w-full border rounded-md px-3 py-2"
@@ -184,28 +182,16 @@ export default function AdminServicesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">مدة التنفيذ (أيام)</label>
+                  <label className="block text-sm font-medium mb-1">مدة التنفيذ</label>
                   <input
-                    type="number"
+                    type="text"
+                    placeholder="مثلاً: من 2 إلى 3 أيام"
                     value={formData.duration_days}
                     onChange={(e) => setFormData({...formData, duration_days: e.target.value})}
                     className="w-full border rounded-md px-3 py-2"
                     required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">فئة الخدمة</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="w-full border rounded-md px-3 py-2"
-                >
-                  <option value="educational">خدمات تعليمية</option>
-                  <option value="consultation">استشارات</option>
-                  <option value="training">دورات تدريبية</option>
-                </select>
               </div>
 
               <div className="flex items-center">
@@ -269,10 +255,10 @@ export default function AdminServicesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {service.price} ريال
+                      {service.price} جنيه مصري
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {service.duration_days} يوم
+                      {service.duration_days}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs rounded-full ${

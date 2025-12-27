@@ -32,7 +32,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, email, phone, nationalId } = body;
+    const { name, email, phone, nationalId, is_active, active_from, active_to } = body;
 
     if (!name || !email || !phone || !nationalId) {
       return NextResponse.json({ error: 'جميع الحقول مطلوبة' }, { status: 400 });
@@ -62,15 +62,28 @@ export async function PUT(
     }
 
     // تحديث بيانات المندوب
+    const updateData: any = {
+      name,
+      email,
+      phone,
+      national_id: nationalId,
+      updated_at: new Date().toISOString()
+    };
+
+    // إضافة حقول النشاط فقط إذا كانت مُرسلة
+    if (typeof is_active !== 'undefined') {
+      updateData.is_active = is_active !== false;
+    }
+    if (active_from !== undefined) {
+      updateData.active_from = active_from || null;
+    }
+    if (active_to !== undefined) {
+      updateData.active_to = active_to || null;
+    }
+
     const { data: updatedDelegate, error } = await supabaseAdmin
       .from('users')
-      .update({
-        name,
-        email,
-        phone,
-        national_id: nationalId,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', params.id)
       .eq('role', 'delegate')
       .select()

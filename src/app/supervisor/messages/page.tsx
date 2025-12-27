@@ -196,9 +196,6 @@ export default function SupervisorMessagesPage() {
                     <strong>المندوب:</strong> {selectedOrder.assigned_delegate?.name || 'غير محدد'}
                   </div>
                   <div>
-                    <strong>إجمالي السعر:</strong> {selectedOrder.total_price} ريال
-                  </div>
-                  <div>
                     <strong>تاريخ الإنشاء:</strong> {new Date(selectedOrder.created_at).toLocaleDateString('ar-SA')}
                   </div>
                 </div>
