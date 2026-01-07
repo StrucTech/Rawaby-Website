@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Disable static page generation for error pages
+  // Standalone output for Railway deployment
   output: 'standalone',
   
-  // Disable static optimization for all pages
   experimental: {
     // This helps with Railway deployment
   },

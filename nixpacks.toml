@@ -1,11 +1,18 @@
+# Railway Build Configuration - Force clean build v2
 [phases.setup]
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['rm -rf .next node_modules/.cache', 'npm ci --legacy-peer-deps']
+cmds = [
+  'rm -rf .next node_modules/.cache .next-server',
+  'npm ci --legacy-peer-deps --force'
+]
 
 [phases.build]
-cmds = ['rm -rf .next', 'npm run build']
+cmds = [
+  'rm -rf .next .next-server',
+  'npm run build'
+]
 
 [start]
 cmd = 'npm start'
