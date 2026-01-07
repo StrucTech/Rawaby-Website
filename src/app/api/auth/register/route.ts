@@ -151,6 +151,12 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
     
-    return NextResponse.json({ error: 'حدث خطأ أثناء إنشاء الحساب' }, { status: 500 });
+    // Return detailed error in development/production for debugging
+    const errorMessage = error.message || 'حدث خطأ أثناء إنشاء الحساب';
+    const errorDetails = process.env.NODE_ENV === 'production' 
+      ? { error: errorMessage, details: error.toString() }
+      : { error: 'حدث خطأ أثناء إنشاء الحساب' };
+    
+    return NextResponse.json(errorDetails, { status: 500 });
   }
 } 

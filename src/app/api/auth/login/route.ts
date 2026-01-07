@@ -67,6 +67,12 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
     
-    return NextResponse.json({ error: 'حدث خطأ أثناء تسجيل الدخول' }, { status: 500 });
+    // Return detailed error for debugging
+    const errorMessage = error.message || 'حدث خطأ أثناء تسجيل الدخول';
+    const errorDetails = process.env.NODE_ENV === 'production'
+      ? { error: errorMessage, details: error.toString(), stack: error.stack }
+      : { error: 'حدث خطأ أثناء تسجيل الدخول' };
+    
+    return NextResponse.json(errorDetails, { status: 500 });
   }
 } 
