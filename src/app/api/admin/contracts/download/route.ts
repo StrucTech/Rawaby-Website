@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import jwt from 'jsonwebtoken';
 
+// Disable static generation for this route
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
-    const supabaseAdmin = getSupabaseAdmin();
+    let supabaseAdmin;
+    try {
+      supabaseAdmin = getSupabaseAdmin();
+    } catch (err) {
+      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+    }
 
     // التحقق من الصلاحيات
     const authHeader = req.headers.get('authorization');
@@ -23,6 +31,7 @@ export async function GET(req: NextRequest) {
 
     if (payload.role !== 'admin') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     }
 
     const { searchParams } = new URL(req.url);
