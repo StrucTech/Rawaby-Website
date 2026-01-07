@@ -338,25 +338,47 @@ export default function OrderDetailsPage() {
 function ContractsSection({ orderId }: { orderId: string }) {
   const [contracts, setContracts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchContracts = async () => {
       try {
         const token = Cookies.get('token');
-        if (!token) return;
+        if (!token) {
+          setError('يجب تسجيل الدخول لعرض العقود');
+          setLoading(false);
+          return;
+        }
 
+        console.log('Fetching contracts for order:', orderId);
         const response = await fetch(`/api/simple-contracts/${orderId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          setContracts(data.contracts || []);
+        const data = await response.json();
+        console.log('API Response status:', response.status);
+        console.log('API Response data:', data);
+
+        if (!response.ok) {
+          const errorMessage = data.message || data.error || 'فشل في جلب العقود';
+          console.error('API Error:', errorMessage);
+          setError(`خطأ: ${errorMessage}`);
+          setLoading(false);
+          return;
         }
-      } catch (error) {
+
+        if (data.contracts) {
+          console.log('Contracts fetched successfully:', data.contracts.length);
+          setContracts(data.contracts);
+        } else {
+          console.warn('No contracts in response');
+          setContracts([]);
+        }
+      } catch (error: any) {
         console.error('Error fetching contracts:', error);
+        setError(`خطأ: ${error.message || 'حدث خطأ أثناء جلب العقود'}`);
       } finally {
         setLoading(false);
       }
@@ -371,66 +393,88 @@ function ContractsSection({ orderId }: { orderId: string }) {
     return <div className="text-center py-4">جاري تحميل العقود...</div>;
   }
 
+  if (error) {
+    return <div className="text-center py-4 text-red-500">{error}</div>;
+  }
+
   if (contracts.length === 0) {
     return <div className="text-center py-4 text-gray-500">لا توجد عقود مرتبطة بهذا الطلب</div>;
   }
 
   return (
     <div className="space-y-4">
-      {contracts.map((contract) => (
-        <div key={contract.id} className="border rounded-lg p-4">
+      {contracts.map((contract, index) => (
+        <div key={contract.id || index} className="border rounded-lg p-4">
           <div className="flex justify-between items-start mb-2">
-            <h3 className="font-medium text-gray-900">عقد رقم {contract.id.substring(0, 8)}</h3>
-            <span className={`px-2 py-1 rounded text-xs ${
-              contract.status === 'approved' ? 'bg-green-100 text-green-800' :
-              contract.status === 'rejected' ? 'bg-red-100 text-red-800' :
-              contract.status === 'under_review' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-blue-100 text-blue-800'
-            }`}>
-              {contract.status === 'uploaded' ? 'مرفوع' :
-               contract.status === 'under_review' ? 'قيد المراجعة' :
-               contract.status === 'approved' ? 'مُعتمد' :
-               contract.status === 'rejected' ? 'مرفوض' : contract.status}
-            </span>
+            <h3 className="font-medium text-gray-900">عقد رقم {index + 1}</h3>
+            {contract.status && (
+              <span className={`px-2 py-1 rounded text-xs ${
+                contract.status === 'approved' ? 'bg-green-100 text-green-800' :
+                contract.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                contract.status === 'under_review' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-blue-100 text-blue-800'
+              }`}>
+                {contract.status === 'uploaded' ? 'مرفوع' :
+                 contract.status === 'under_review' ? 'قيد المراجعة' :
+                 contract.status === 'approved' ? 'مُعتمد' :
+                 contract.status === 'rejected' ? 'مرفوض' : contract.status}
+              </span>
+            )}
           </div>
           
           <div className="grid grid-cols-2 gap-4 text-sm">
-            {contract.contract1_url && (
+            {contract.contract1_filename && (
               <div>
-                <label className="text-gray-600">العقد الأول:</label>
-                <a 
-                  href={contract.contract1_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="block text-blue-600 hover:text-blue-800 truncate"
-                >
-                  {contract.contract1_filename}
-                </a>
+                <label className="text-gray-600">الملف الأول:</label>
+                {contract.contract1_url ? (
+                  <a 
+                    href={contract.contract1_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block text-blue-600 hover:text-blue-800 truncate"
+                  >
+                    {contract.contract1_filename || 'الملف الأول'}
+                  </a>
+                ) : (
+                  <span className="text-gray-400">{contract.contract1_filename || 'الملف الأول'}</span>
+                )}
               </div>
             )}
             
-            {contract.contract2_url && (
+            {contract.contract2_filename && (
               <div>
-                <label className="text-gray-600">العقد الثاني:</label>
-                <a 
-                  href={contract.contract2_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="block text-blue-600 hover:text-blue-800 truncate"
-                >
-                  {contract.contract2_filename}
-                </a>
+                <label className="text-gray-600">الملف الثاني:</label>
+                {contract.contract2_url ? (
+                  <a 
+                    href={contract.contract2_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block text-blue-600 hover:text-blue-800 truncate"
+                  >
+                    {contract.contract2_filename || 'الملف الثاني'}
+                  </a>
+                ) : (
+                  <span className="text-gray-400">{contract.contract2_filename || 'الملف الثاني'}</span>
+                )}
               </div>
             )}
           </div>
           
-          <div className="mt-2 text-xs text-gray-500">
-            رُفع في: {new Date(contract.uploaded_at).toLocaleString('ar-SA')}
-          </div>
+          {contract.created_at && (
+            <div className="mt-2 text-xs text-gray-500">
+              رُفع في: {new Date(contract.created_at).toLocaleString('ar-SA')}
+            </div>
+          )}
           
           {contract.review_notes && (
             <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
               <strong>ملاحظات المراجعة:</strong> {contract.review_notes}
+            </div>
+          )}
+
+          {contract.source && (
+            <div className="mt-2 text-xs text-blue-500">
+              <strong>المصدر:</strong> {contract.source === 'storage' ? 'التخزين السحابي' : 'قاعدة البيانات'}
             </div>
           )}
         </div>

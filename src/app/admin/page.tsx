@@ -12,6 +12,7 @@ export default function AdminHomePage() {
         <Link href="/admin/contracts" className="block bg-indigo-600 text-white rounded p-6 text-xl text-center hover:bg-indigo-700 transition">📄 إدارة قوالب العقود</Link>
         <Link href="/admin/site-settings" className="block bg-teal-600 text-white rounded p-6 text-xl text-center hover:bg-teal-700 transition">⚙️ إعدادات الموقع (من نحن + Footer)</Link>
         <Link href="/admin/data-requests" className="block bg-yellow-600 text-white rounded p-6 text-xl text-center hover:bg-yellow-700 transition">📬 إدارة الرسائل (المشرفين والعملاء)</Link>
+        <Link href="/admin/reviews" className="block bg-pink-600 text-white rounded p-6 text-xl text-center hover:bg-pink-700 transition">⭐ إدارة التقييمات</Link>
       </div>
     </div>
   );

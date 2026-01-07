@@ -29,6 +29,7 @@ interface CompletionNotification {
   order_id: string;
   delegate_id: string;
   message: string;
+  type: string; // 'delegate_completion' أو 'cancellation_request'
   status: string;
   created_at: string;
   delegate?: {
@@ -71,6 +72,11 @@ export default function SupervisorDashboard() {
   // إشعارات إتمام المندوبين
   const [completionNotifications, setCompletionNotifications] = useState<CompletionNotification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  
+  // إشعارات طلبات الإلغاء
+  const [cancellationRequests, setCancellationRequests] = useState<CompletionNotification[]>([]);
+  const [rejectingCancellation, setRejectingCancellation] = useState<string | null>(null);
+  const [cancellationRejectReason, setCancellationRejectReason] = useState<{ [key: string]: string }>({});
   
   // حالات رد المشرف على العميل
   const [showReplyModal, setShowReplyModal] = useState(false);
@@ -115,7 +121,7 @@ export default function SupervisorDashboard() {
     }
   }, []);
 
-  // جلب إشعارات إتمام المندوبين
+  // جلب إشعارات إتمام المندوبين وطلبات الإلغاء
   const fetchCompletionNotifications = async () => {
     if (!supervisorId) return;
     
@@ -130,7 +136,14 @@ export default function SupervisorDashboard() {
       
       if (res.ok) {
         const data = await res.json();
-        setCompletionNotifications(data.notifications || []);
+        const notifications = data.notifications || [];
+        
+        // فصل الإشعارات حسب النوع
+        const completions = notifications.filter((n: CompletionNotification) => n.type === 'delegate_completion');
+        const cancellations = notifications.filter((n: CompletionNotification) => n.type === 'cancellation_request');
+        
+        setCompletionNotifications(completions);
+        setCancellationRequests(cancellations);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -203,6 +216,110 @@ export default function SupervisorDashboard() {
       setCompletionNotifications(prev => prev.filter(n => n.id !== notificationId));
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  // رفض طلب الإلغاء مع إدخال السبب
+  const handleRejectCancellation = async (notificationId: string, orderId: string) => {
+    const reason = cancellationRejectReason[notificationId] || '';
+    
+    if (!reason.trim()) {
+      alert('يرجى إدخال سبب الرفض');
+      return;
+    }
+
+    setRejectingCancellation(notificationId);
+    try {
+      const token = Cookies.get('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/orders/${orderId}/respond-to-cancellation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'reject',
+          reason: reason
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert('خطأ: ' + (data.error || 'فشل رفض الإلغاء'));
+        return;
+      }
+
+      alert('تم رفض طلب الإلغاء وإرسال السبب للعميل');
+      
+      // إزالة الإشعار
+      setCancellationRequests(prev => prev.filter(n => n.id !== notificationId));
+      
+      // تحديث الإشعار ليكون مقروءاً
+      await fetch('/api/delegate-completion', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ notificationId, status: 'read' })
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      alert('خطأ في معالجة الطلب');
+    } finally {
+      setRejectingCancellation(null);
+    }
+  };
+
+  // قبول طلب الإلغاء
+  const handleApproveCancellation = async (notificationId: string, orderId: string) => {
+    if (!confirm('هل أنت متأكد من إلغاء الطلب واسترجاع المبلغ للعميل؟')) {
+      return;
+    }
+
+    setRejectingCancellation(notificationId);
+    try {
+      const token = Cookies.get('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/orders/${orderId}/respond-to-cancellation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'approve'
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert('خطأ: ' + (data.error || 'فشل قبول الإلغاء'));
+        return;
+      }
+
+      alert('تم قبول طلب الإلغاء');
+      
+      // إزالة الإشعار
+      setCancellationRequests(prev => prev.filter(n => n.id !== notificationId));
+      
+      // تحديث الإشعار ليكون مقروءاً
+      await fetch('/api/delegate-completion', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ notificationId, status: 'read' })
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      alert('خطأ في معالجة الطلب');
+    } finally {
+      setRejectingCancellation(null);
     }
   };
 
@@ -606,7 +723,7 @@ export default function SupervisorDashboard() {
                       المندوب <strong>{notification.delegate?.name || 'غير محدد'}</strong> يبلغ بإتمام المهمة
                     </p>
                     <p className="text-lg font-bold text-blue-600 mt-1">
-                      🔢 رقم الطلب: #{notification.order_id.substring(0, 8).toUpperCase()}
+                      🔢 رقم الطلب: #{notification.order_id.slice(-8).toUpperCase()}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
                       {notification.message}
@@ -628,6 +745,65 @@ export default function SupervisorDashboard() {
                     >
                       تجاهل
                     </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* قسم إشعارات طلبات الإلغاء */}
+      {cancellationRequests.length > 0 && (
+        <div className="mb-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-orange-800 flex items-center gap-2">
+              ⚠️ طلبات الإلغاء ({cancellationRequests.length})
+            </h3>
+          </div>
+          
+          <div className="space-y-3">
+            {cancellationRequests.map((request) => (
+              <div key={request.id} className="bg-white rounded-lg p-4 border border-orange-200 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className="font-medium text-orange-700 mb-2">
+                      {request.message}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(request.created_at).toLocaleString('ar-SA')}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-col">
+                    {/* زر قبول الإلغاء */}
+                    <button
+                      onClick={() => handleApproveCancellation(request.id, request.order_id)}
+                      disabled={rejectingCancellation === request.id}
+                      className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                    >
+                      ✓ قبول الإلغاء
+                    </button>
+                    
+                    {/* منطقة رفض الإلغاء مع إدخال السبب */}
+                    <div className="flex flex-col gap-1">
+                      <textarea
+                        placeholder="اكتب سبب الرفض..."
+                        value={cancellationRejectReason[request.id] || ''}
+                        onChange={(e) => setCancellationRejectReason(prev => ({
+                          ...prev,
+                          [request.id]: e.target.value
+                        }))}
+                        className="text-xs p-2 border rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        rows={2}
+                      />
+                      <button
+                        onClick={() => handleRejectCancellation(request.id, request.order_id)}
+                        disabled={rejectingCancellation === request.id}
+                        className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700 disabled:opacity-50"
+                      >
+                        {rejectingCancellation === request.id ? 'جاري الإرسال...' : 'رفض الإلغاء'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -692,9 +868,23 @@ export default function SupervisorDashboard() {
               const completedByDelegate = completedByDelegateId ? 
                 delegates.find((d: any) => d.id === completedByDelegateId) : null;
               
+              // تحديد إذا كان الطلب معطل (ملغي أو طلب إلغاء معلق)
+              const isOrderDisabled = order.status === 'cancelled' || 
+                                     (order.metadata && order.metadata.cancellation_requested === true);
+              
               return (
-              <tr key={order.id}>
-                <td className="p-2">{'طلب رقم ' + order.id.slice(0, 8)}</td>
+              <tr key={order.id} className={isOrderDisabled ? 'bg-red-50' : ''}>
+                <td className="p-2">
+                  <div className="flex flex-col gap-1">
+                    <span>{'طلب رقم ' + order.id.slice(-8).toUpperCase()}</span>
+                    {isOrderDisabled && order.metadata?.cancellation_requested && (
+                      <span className="text-xs text-red-600 font-medium">⚠️ طلب إلغاء معلق</span>
+                    )}
+                    {order.status === 'cancelled' && (
+                      <span className="text-xs text-red-600 font-medium">✖ ملغي</span>
+                    )}
+                  </div>
+                </td>
                 <td className="p-2">{guardianName}</td>
                 <td className="p-2">
                   <span className={`px-2 py-1 rounded text-sm ${getStatusInfo(order.status).color}`}>
@@ -765,7 +955,7 @@ export default function SupervisorDashboard() {
                       ref={el => { statusSelectRef.current[order.id] = el; }} 
                       className="border p-1 rounded text-sm"
                       defaultValue={order.status}
-                      disabled={order.assigned_supervisor_id !== supervisorId}
+                      disabled={order.assigned_supervisor_id !== supervisorId || isOrderDisabled}
                     >
                       {/* إذا كان الطلب مُعيّن للمشرف، إظهار الحالات المسموحة فقط */}
                       {order.assigned_supervisor_id === supervisorId ? (
@@ -781,9 +971,9 @@ export default function SupervisorDashboard() {
                     </select>
                     <button 
                       className="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 disabled:bg-gray-400 text-sm" 
-                      disabled={updatingStatus === order.id || order.assigned_supervisor_id !== supervisorId} 
+                      disabled={updatingStatus === order.id || order.assigned_supervisor_id !== supervisorId || isOrderDisabled} 
                       onClick={() => handleStatusUpdate(order.id)}
-                      title={order.assigned_supervisor_id !== supervisorId ? 'يجب أن يُعيّن الطلب لك أولاً' : ''}
+                      title={isOrderDisabled ? 'الطلب ملغي أو له طلب إلغاء معلق' : (order.assigned_supervisor_id !== supervisorId ? 'يجب أن يُعيّن الطلب لك أولاً' : '')}
                     >
                       {updatingStatus === order.id ? 'تحديث...' : 'تحديث'}
                     </button>
@@ -802,15 +992,16 @@ export default function SupervisorDashboard() {
                     // زر أخذ الطلب إذا لم يكن مُعيّن لأي مشرف
                     <button 
                       className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400" 
-                      disabled={assigning === order.id} 
+                      disabled={assigning === order.id || isOrderDisabled} 
                       onClick={() => handleTakeOrder(order.id)}
+                      title={isOrderDisabled ? 'الطلب ملغي أو له طلب إلغاء معلق' : ''}
                     >
                       {assigning === order.id ? 'جاري الأخذ...' : 'أخذ الطلب'}
                     </button>
                   ) : (
                     // إذا كان الطلب مُعيّن للمشرف الحالي، يمكنه تعيين مندوب
                     <>
-                      <select ref={el => { delegateSelectRef.current[order.id] = el; }} className="border p-2 rounded">
+                      <select ref={el => { delegateSelectRef.current[order.id] = el; }} className="border p-2 rounded" disabled={isOrderDisabled}>
                         <option value="">اختر مندوب</option>
                         {delegates.map((d: any) => (
                           <option key={d.id} value={d.id}>{d.name} ({d.email})</option>
@@ -818,8 +1009,9 @@ export default function SupervisorDashboard() {
                       </select>
                       <button 
                         className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:bg-gray-400" 
-                        disabled={assigning === order.id} 
+                        disabled={assigning === order.id || isOrderDisabled} 
                         onClick={() => handleAssign(order.id)}
+                        title={isOrderDisabled ? 'الطلب ملغي أو له طلب إلغاء معلق' : ''}
                       >
                         {assigning === order.id ? 'جاري التعيين...' : 'تعيين'}
                       </button>

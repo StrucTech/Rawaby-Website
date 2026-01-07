@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import jwt_decode from 'jwt-decode';
+import ReviewModal from '@/components/ReviewModal';
 
 interface UserOrder {
   id: string;
@@ -53,6 +54,18 @@ export default function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<DecodedToken | null>(null);
+  
+  // حالة التقييم
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState<{id: string, serviceName: string} | null>(null);
+  const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
+  
+  // حالة طلب الإلغاء
+  const [cancellationInProgress, setCancellationInProgress] = useState<string | null>(null);
+  
+  // حالة الإشعارات
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   useEffect(() => {
     const token = Cookies.get('token');
@@ -61,6 +74,8 @@ export default function MyOrdersPage() {
         const decoded = jwt_decode<DecodedToken>(token);
         setUserInfo(decoded);
         fetchMyOrders(token);
+        checkReviewedOrders(token);
+        fetchClientNotifications(token);
       } catch (error) {
         setError('خطأ في التحقق من الهوية');
         setLoading(false);
@@ -70,6 +85,141 @@ export default function MyOrdersPage() {
       setLoading(false);
     }
   }, []);
+
+  // التحقق من الطلبات التي تم تقييمها
+  const checkReviewedOrders = async (token: string) => {
+    try {
+      // سنتحقق من كل طلب مكتمل
+      const response = await fetch('/api/orders', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      const completedOrders = (data.orders || []).filter(
+        (o: UserOrder) => o.status === 'completed' || o.status === 'done' || o.status === 'تم الانتهاء بنجاح'
+      );
+      
+      const reviewed = new Set<string>();
+      for (const order of completedOrders) {
+        const reviewRes = await fetch(`/api/reviews/submit?order_id=${order.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const reviewData = await reviewRes.json();
+        if (reviewData.review) {
+          reviewed.add(order.id);
+        }
+      }
+      setReviewedOrders(reviewed);
+    } catch (error) {
+      console.error('Error checking reviewed orders:', error);
+    }
+  };
+
+  // دالة لفتح نافذة التقييم
+  const openReviewModal = (orderId: string, serviceName: string) => {
+    setSelectedOrderForReview({ id: orderId, serviceName });
+    setReviewModalOpen(true);
+  };
+
+  // دالة عند نجاح التقييم
+  const handleReviewSuccess = () => {
+    if (selectedOrderForReview) {
+      setReviewedOrders(prev => new Set([...prev, selectedOrderForReview.id]));
+    }
+    alert('شكراً لتقييمك! سيتم مراجعته ونشره قريباً');
+  };
+
+  // دالة طلب إلغاء الطلب
+  const handleCancellationRequest = async (orderId: string) => {
+    const confirmCancel = window.confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب واسترجاع المبلغ؟');
+    if (!confirmCancel) return;
+
+    setCancellationInProgress(orderId);
+    try {
+      const token = Cookies.get('token');
+      if (!token) {
+        alert('يجب تسجيل الدخول');
+        return;
+      }
+
+      const response = await fetch(`/api/orders/${orderId}/request-cancellation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert('خطأ: ' + (data.error || 'فشل في إرسال طلب الإلغاء'));
+        return;
+      }
+
+      alert('تم إرسال طلب الإلغاء للمشرف. سيتم مراجعته قريباً');
+      // تحديث الطلب في القائمة - نضيف علامة cancellation_requested في metadata
+      setOrders(orders.map(o => 
+        o.id === orderId ? { ...o, cancellation_requested: true } : o
+      ));
+    } catch (error: any) {
+      alert('خطأ: ' + error.message);
+    } finally {
+      setCancellationInProgress(null);
+    }
+  };
+
+  // جلب إشعارات العميل
+  const fetchClientNotifications = async (token: string) => {
+    try {
+      setLoadingNotifications(true);
+      const response = await fetch('/api/delegate-completion?status=unread', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // تصفية الإشعارات الخاصة بالعميل (cancellation_approved و cancellation_rejected)
+        const clientNotifs = (data.notifications || []).filter(
+          (n: any) => n.type === 'cancellation_approved' || n.type === 'cancellation_rejected'
+        );
+        setNotifications(clientNotifs);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // حذف إشعار بعد قراءته
+  const dismissNotification = async (notificationId: string) => {
+    try {
+      const token = Cookies.get('token');
+      await fetch('/api/delegate-completion', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ notificationId, status: 'read' })
+      });
+
+      setNotifications(notifications.filter(n => n.id !== notificationId));
+    } catch (error) {
+      console.error('Error dismissing notification:', error);
+    }
+  };
+
+  // التحقق إذا كان الطلب مكتمل وقابل للتقييم
+  const isOrderCompletedAndReviewable = (order: UserOrder) => {
+    const completedStatuses = ['completed', 'done', 'تم الانتهاء بنجاح'];
+    return completedStatuses.includes(order.status) && !reviewedOrders.has(order.id);
+  };
+
+  // التحقق إذا تم تقييم الطلب
+  const isOrderReviewed = (orderId: string) => {
+    return reviewedOrders.has(orderId);
+  };
 
   const fetchMyOrders = async (token: string) => {
     try {
@@ -272,6 +422,46 @@ export default function MyOrdersPage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* قسم الإشعارات */}
+        {notifications.length > 0 && (
+          <div className="mb-6 space-y-3">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">📬 إشعارات هامة</h2>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`rounded-lg p-4 border-l-4 ${
+                  notification.type === 'cancellation_approved'
+                    ? 'bg-green-50 border-green-500'
+                    : 'bg-red-50 border-red-500'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className={`font-semibold mb-1 ${
+                      notification.type === 'cancellation_approved'
+                        ? 'text-green-800'
+                        : 'text-red-800'
+                    }`}>
+                      {notification.type === 'cancellation_approved' ? '✅ تم قبول طلب الإلغاء' : '❌ تم رفض طلب الإلغاء'}
+                    </p>
+                    <p className="text-gray-700 whitespace-pre-line">{notification.message}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {new Date(notification.created_at).toLocaleString('ar-SA')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => dismissNotification(notification.id)}
+                    className="text-gray-400 hover:text-gray-600 ml-3"
+                    title="إخفاء الإشعار"
+                  >
+                    ✖
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {orders.length === 0 ? (
           <div className="text-center py-12">
             <div className="bg-white rounded-lg shadow-md p-8">
@@ -402,12 +592,38 @@ export default function MyOrdersPage() {
                   )}
 
                   {/* Completion Info */}
-                  {order.status === 'done' && (
+                  {(order.status === 'done' || order.status === 'completed' || order.status === 'تم الانتهاء بنجاح') && (
                     <div className="mt-6 pt-4 border-t">
                       <h4 className="font-semibold text-green-800 mb-2">✓ تم إنجاز الطلب</h4>
                       <div className="bg-green-50 p-3 rounded-lg text-sm">
                         <p className="text-green-700">تم إنجاز طلبك بنجاح من قبل فريقنا المختص. شكراً لثقتك بنا!</p>
                       </div>
+                      
+                      {/* زر التقييم */}
+                      {isOrderCompletedAndReviewable(order) && (
+                        <button
+                          onClick={() => openReviewModal(
+                            order.id, 
+                            order.serviceDetails?.[0]?.title || 'خدمة'
+                          )}
+                          className="mt-4 w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-3 rounded-lg hover:from-yellow-500 hover:to-orange-600 transition-all flex items-center justify-center gap-2 font-medium"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          قيّم تجربتك مع خدماتنا
+                        </button>
+                      )}
+                      
+                      {/* تم التقييم */}
+                      {isOrderReviewed(order.id) && (
+                        <div className="mt-4 p-3 bg-purple-50 rounded-lg flex items-center gap-2 text-purple-700">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <span className="font-medium">شكراً! تم إرسال تقييمك</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -418,17 +634,24 @@ export default function MyOrdersPage() {
                     آخر تحديث: {new Date(order.updated_at).toLocaleDateString('ar-SA')}
                   </div>
                   <div className="flex gap-3">
-                    {order.status === 'new' && (
-                      <button className="text-red-600 hover:text-red-800 text-sm font-medium">
-                        طلب إلغاء
+                    {/* زر طلب الإلغاء - يظهر طول الوقت إلا عند انتهاء الطلب أو إلغاؤه */}
+                    {order.status !== 'done' && order.status !== 'completed' && order.status !== 'تم الانتهاء بنجاح' && order.status !== 'cancelled' && (
+                      <button
+                        onClick={() => handleCancellationRequest(order.id)}
+                        disabled={cancellationInProgress === order.id || (order as any).cancellation_requested}
+                        className={`text-sm font-medium px-3 py-2 rounded transition-colors ${
+                          (order as any).cancellation_requested
+                            ? 'bg-orange-100 text-orange-700 cursor-wait'
+                            : 'text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                        }`}
+                      >
+                        {(order as any).cancellation_requested
+                          ? 'في انتظار قرار الإلغاء...'
+                          : cancellationInProgress === order.id
+                          ? 'جاري الإرسال...'
+                          : 'طلب إلغاء'}
                       </button>
                     )}
-                    <a
-                      href={`/my-orders/${order.id}`}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      تفاصيل أكثر
-                    </a>
                   </div>
                 </div>
               </div>
@@ -436,6 +659,17 @@ export default function MyOrdersPage() {
           </div>
         )}
       </div>
+      
+      {/* Review Modal */}
+      {selectedOrderForReview && (
+        <ReviewModal
+          isOpen={reviewModalOpen}
+          onClose={() => setReviewModalOpen(false)}
+          orderId={selectedOrderForReview.id}
+          serviceName={selectedOrderForReview.serviceName}
+          onSuccess={handleReviewSuccess}
+        />
+      )}
     </div>
   );
 }

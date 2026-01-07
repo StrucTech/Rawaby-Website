@@ -34,6 +34,7 @@ const defaultSettings: FooterSettings = {
   quickLinks: [
     { text: 'خدماتنا', href: '/services' },
     { text: 'من نحن', href: '/about' },
+    { text: 'التقييمات', href: '/reviews' },
     { text: 'تسجيل الدخول', href: '/login' },
     { text: 'إنشاء حساب', href: '/register' },
   ],

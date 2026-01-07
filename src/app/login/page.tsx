@@ -226,6 +226,17 @@ function LoginForm() {
             </div>
           </div>
 
+          <div className="flex items-center justify-between mb-4" dir="rtl">
+            <div className="text-sm">
+              <Link
+                href="/forgot-password"
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                نسيت كلمة المرور؟
+              </Link>
+            </div>
+          </div>
+
           <div>
             <button
               type="submit"

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import jwt_decode from 'jwt-decode';
+import ReviewsSection from '@/components/ReviewsSection';
 
 interface UserPayload {
   userId: string;
@@ -63,6 +64,9 @@ export default function Home() {
             </div>
           </div>
         </div>
+        
+        {/* Reviews Section */}
+        <ReviewsSection />
       </main>
     </div>
   );

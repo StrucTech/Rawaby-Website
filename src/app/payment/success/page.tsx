@@ -121,7 +121,7 @@ const PaymentSuccessPage: React.FC = () => {
                 </p>
                 <p className="text-gray-600">
                   <span className="font-semibold">المبلغ:</span>{' '}
-                  {paymentDetails.amount} ريال
+                  {paymentDetails.amount} جنيه مصري
                 </p>
                 <p className="text-gray-600">
                   <span className="font-semibold">تاريخ الدفع:</span>{' '}

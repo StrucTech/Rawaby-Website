@@ -120,7 +120,7 @@ export async function GET(request: Request) {
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
 
-    if (decoded.role !== 'supervisor' && decoded.role !== 'admin') {
+    if (decoded.role !== 'supervisor' && decoded.role !== 'admin' && decoded.role !== 'user') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
@@ -136,9 +136,11 @@ export async function GET(request: Request) {
       `)
       .order('created_at', { ascending: false });
 
-    // المشرف يرى إشعاراته فقط، الأدمن يرى الكل
+    // المشرف يرى إشعاراته فقط، الأدمن يرى الكل، العميل يرى إشعاراته فقط
     if (decoded.role === 'supervisor') {
       query = query.eq('supervisor_id', decoded.userId);
+    } else if (decoded.role === 'user') {
+      query = query.eq('delegate_id', decoded.userId);
     }
 
     if (status) {
@@ -171,7 +173,7 @@ export async function PATCH(request: Request) {
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
 
-    if (decoded.role !== 'supervisor' && decoded.role !== 'admin') {
+    if (decoded.role !== 'supervisor' && decoded.role !== 'admin' && decoded.role !== 'user') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 

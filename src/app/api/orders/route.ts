@@ -108,6 +108,9 @@ export async function GET(request: NextRequest) {
         guardianName: metadata.guardianName || null,
         serviceName: metadata.serviceName || null,
         studentInfo: metadata.studentInfo || null,
+        // حالة طلب الإلغاء
+        cancellation_requested: metadata.cancellation_requested || false,
+        cancellation_requested_at: metadata.cancellation_requested_at || null,
         // الحقول المحدثة
         assignedSupervisorId: order.assigned_supervisor_id,
         assignedDelegateId: order.assigned_delegate_id,

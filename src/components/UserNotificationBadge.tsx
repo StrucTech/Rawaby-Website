@@ -46,16 +46,46 @@ export default function UserNotificationBadge() {
     if (userRole !== 'user') return;
     
     try {
-      // جلب العدد فقط
-      const countResponse = await fetch('/api/user/notifications/unread');
+      const token = Cookies.get('token');
+      
+      // جلب رسائل العميل العادية
+      const countResponse = await fetch('/api/user/notifications/unread', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      let regularCount = 0;
       if (countResponse.ok) {
         const countData = await countResponse.json();
-        setUnreadCount(countData.unreadCount || 0);
+        regularCount = countData.unreadCount || 0;
       }
 
+      // جلب إشعارات الإلغاء
+      let cancellationCount = 0;
+      try {
+        const cancellationResponse = await fetch('/api/delegate-completion?status=unread', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (cancellationResponse.ok) {
+          const data = await cancellationResponse.json();
+          const clientNotifications = (data.notifications || []).filter(
+            (n: any) => n.type === 'cancellation_approved' || n.type === 'cancellation_rejected'
+          );
+          cancellationCount = clientNotifications.length;
+        }
+      } catch (e) {
+        console.log('No cancellation notifications');
+      }
+
+      // مجموع الإشعارات
+      const totalCount = regularCount + cancellationCount;
+      setUnreadCount(totalCount);
+
       // جلب الرسائل الحديثة فقط إذا كان هناك رسائل غير مقروءة
-      if (unreadCount > 0) {
-        const messagesResponse = await fetch('/api/user/messages');
+      if (totalCount > 0) {
+        const messagesResponse = await fetch('/api/user/messages', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (messagesResponse.ok) {
           const messagesData = await messagesResponse.json();
           const unreadNotifications = messagesData.notifications?.filter((n: Notification) => n.status === 'sent') || [];

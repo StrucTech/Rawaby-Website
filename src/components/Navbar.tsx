@@ -24,6 +24,7 @@ interface NavigationItem {
 const publicNavigation: NavigationItem[] = [
   { name: 'الرئيسية', href: '/' },
   { name: 'الخدمات', href: '/services' },
+  { name: 'التقييمات', href: '/reviews' },
   { name: 'تسجيل الدخول', href: '/login' },
   { name: 'إنشاء حساب', href: '/register' },
   { name: 'من نحن', href: '/about' },
@@ -32,6 +33,7 @@ const publicNavigation: NavigationItem[] = [
 const privateNavigation: NavigationItem[] = [
   { name: 'الرئيسية', href: '/' },
   { name: 'الخدمات', href: '/services' },
+  { name: 'التقييمات', href: '/reviews' },
   { name: 'سلة المشتريات', href: '/cart' },
   { name: 'طلباتي', href: '/my-orders' },
   { name: 'رسائلي', href: '/messages' },
@@ -69,6 +71,7 @@ export default function Navbar() {
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [ordersNotificationCount, setOrdersNotificationCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -103,6 +106,36 @@ export default function Navbar() {
     const interval = setInterval(checkAuth, 5000);
     return () => clearInterval(interval);
   }, [pathname]);
+
+  // جلب عدد إشعارات الطلبات للعميل
+  useEffect(() => {
+    const fetchOrdersNotifications = async () => {
+      if (userRole !== 'user') return;
+      
+      try {
+        const token = Cookies.get('token');
+        const response = await fetch('/api/delegate-completion?status=unread', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const clientNotifications = (data.notifications || []).filter(
+            (n: any) => n.type === 'cancellation_approved' || n.type === 'cancellation_rejected'
+          );
+          setOrdersNotificationCount(clientNotifications.length);
+        }
+      } catch (error) {
+        console.error('Error fetching orders notifications:', error);
+      }
+    };
+
+    if (userRole === 'user') {
+      fetchOrdersNotifications();
+      const interval = setInterval(fetchOrdersNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userRole]);
 
   const handleLogout = () => {
     Cookies.remove('token');
@@ -150,13 +183,19 @@ export default function Navbar() {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium relative ${
                       pathname === item.href
                         ? 'border-blue-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
                     {item.name}
+                    {/* Badge للطلبات */}
+                    {item.href === '/my-orders' && ordersNotificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full animate-pulse">
+                        {ordersNotificationCount}
+                      </span>
+                    )}
                   </Link>
                 )
               ))}
@@ -171,97 +210,13 @@ export default function Navbar() {
                 {userRole === 'user' && <UserNotificationBadge />}
                 <span className="text-blue-700 font-semibold">مرحباً، {userName}</span>
                 {userRole === 'supervisor' && (
-                  <div className="relative group">
-                    <button className="text-blue-600 hover:text-blue-800 font-medium px-3 py-2 rounded-md hover:bg-blue-50">
-                      لوحة المشرف ↓
-                    </button>
-                    <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg invisible group-hover:visible">
-                      <Link
-                        href="/supervisor/orders"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        عرض جميع الطلبات
-                      </Link>
-                      <Link
-                        href="/supervisor/messages"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        رسائل المندوبين
-                      </Link>
-                      <Link
-                        href="/supervisor/customer-messages"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        رسائل العملاء
-                      </Link>
-                      <Link
-                        href="/supervisor/dashboard"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        توزيع المهام
-                      </Link>
-                    </div>
-                  </div>
+                  <span className="text-blue-600 font-medium px-3 py-2 rounded-md"></span>
                 )}
                 {userRole === 'admin' && (
-                  <div className="relative group">
-                    <button className="text-red-600 hover:text-red-800 font-medium px-3 py-2 rounded-md hover:bg-red-50">
-                      لوحة الإدارة ↓
-                    </button>
-                    <div className="absolute left-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg invisible group-hover:visible z-50">
-                      <Link
-                        href="/admin"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        لوحة التحكم الرئيسية
-                      </Link>
-                      <Link
-                        href="/admin/services"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        إدارة الخدمات
-                      </Link>
-                      <Link
-                        href="/admin/supervisors"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        إدارة المشرفين
-                      </Link>
-                      <Link
-                        href="/admin/delegates"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        إدارة المندوبين
-                      </Link>
-                      <Link
-                        href="/admin/tasks"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        متابعة المهام
-                      </Link>
-                    </div>
-                  </div>
+                  <span className="text-red-600 font-medium px-3 py-2 rounded-md"></span>
                 )}
                 {userRole === 'delegate' && (
-                  <div className="relative group">
-                    <button className="text-green-600 hover:text-green-800 font-medium px-3 py-2 rounded-md hover:bg-green-50">
-                      لوحة المندوب ↓
-                    </button>
-                    <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg invisible group-hover:visible">
-                      <Link
-                        href="/delegate-tasks"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        مهامي
-                      </Link>
-                      <Link
-                        href="/delegate/messages"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        الرسائل
-                      </Link>
-                    </div>
-                  </div>
+                  <span className="text-green-600 font-medium px-3 py-2 rounded-md"></span>
                 )}
               </div>
             )}

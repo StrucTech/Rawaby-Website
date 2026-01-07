@@ -294,4 +294,165 @@ export async function sendMailWithDriveLinks(to: string, { studentName, guardian
     subject: 'روابط العقود المطلوبة',
     html
   });
-} 
+}
+
+// دالة إرسال بريد إعادة تعيين كلمة المرور
+export async function sendPasswordResetEmail(to: string, name: string, resetLink: string) {
+  const html = `
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #f5f5f5;
+          line-height: 1.6;
+        }
+        .container {
+          max-width: 600px;
+          margin: 20px auto;
+          background-color: #ffffff;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 30px 20px;
+          text-align: center;
+        }
+        .header h1 {
+          font-size: 28px;
+          margin-bottom: 5px;
+        }
+        .content {
+          padding: 40px 30px;
+        }
+        .greeting {
+          font-size: 18px;
+          color: #333;
+          margin-bottom: 20px;
+        }
+        .message-box {
+          background-color: #fff3cd;
+          border-right: 4px solid #ffc107;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+          font-size: 14px;
+          color: #555;
+          line-height: 1.8;
+        }
+        .reset-button {
+          display: inline-block;
+          margin: 30px 0;
+          padding: 15px 40px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white !important;
+          text-decoration: none;
+          border-radius: 5px;
+          font-weight: bold;
+          font-size: 16px;
+        }
+        .reset-link {
+          margin-top: 20px;
+          padding: 15px;
+          background-color: #f8f9fa;
+          border: 1px dashed #ccc;
+          border-radius: 4px;
+          word-break: break-all;
+          font-size: 12px;
+          color: #666;
+        }
+        .warning {
+          background-color: #fee;
+          border-right: 4px solid #f44336;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+          font-size: 13px;
+          color: #d32f2f;
+        }
+        .footer {
+          background-color: #f8f9fa;
+          padding: 20px;
+          text-align: center;
+          color: #888;
+          font-size: 12px;
+        }
+        .divider {
+          height: 1px;
+          background: linear-gradient(to left, rgba(102, 126, 234, 0), rgba(102, 126, 234, 0.5), rgba(102, 126, 234, 0));
+          margin: 30px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔐 إعادة تعيين كلمة المرور</h1>
+          <p>منصة الخدمات التعليمية</p>
+        </div>
+        
+        <div class="content">
+          <div class="greeting">
+            مرحباً ${name}،
+          </div>
+          
+          <div class="message-box">
+            لقد تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك. إذا لم تقم بهذا الطلب، يرجى تجاهل هذا البريد الإلكتروني.
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="${resetLink}" class="reset-button">
+              إعادة تعيين كلمة المرور
+            </a>
+          </div>
+          
+          <div class="warning">
+            ⚠️ هذا الرابط صالح لمدة ساعة واحدة فقط من وقت إرسال هذا البريد.
+          </div>
+          
+          <div class="divider"></div>
+          
+          <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
+            إذا لم يعمل الزر أعلاه، يمكنك نسخ الرابط التالي ولصقه في المتصفح:
+          </p>
+          
+          <div class="reset-link">
+            ${resetLink}
+          </div>
+          
+          <div class="divider"></div>
+          
+          <p style="font-size: 13px; color: #888; text-align: center;">
+            إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد.<br>
+            حسابك آمن ولن يتم تغيير أي شيء.
+          </p>
+        </div>
+        
+        <div class="footer">
+          <p>هذا بريد إلكتروني تلقائي، يرجى عدم الرد عليه</p>
+          <p style="margin-top: 10px;">© 2024 منصة الخدمات التعليمية. جميع الحقوق محفوظة</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: '🔐 إعادة تعيين كلمة المرور - منصة الخدمات التعليمية',
+    html
+  });
+}
+ 

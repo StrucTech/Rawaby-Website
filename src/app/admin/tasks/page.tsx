@@ -34,7 +34,9 @@ export default function TasksManagement() {
     totalOrders: 0,
     completedOrders: 0,
     inProgressOrders: 0,
-    pendingOrders: 0
+    pendingOrders: 0,
+    cancelledOrders: 0,
+    pendingCancellationOrders: 0
   });
   
   // إحصائيات المندوبين
@@ -42,6 +44,12 @@ export default function TasksManagement() {
   
   // إحصائيات المشرفين
   const [supervisorStats, setSupervisorStats] = useState<any[]>([]);
+
+  // حالة إشعارات طلبات الإلغاء
+  const [cancellationRequests, setCancellationRequests] = useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [rejectingCancellation, setRejectingCancellation] = useState<string | null>(null);
+  const [cancellationRejectReason, setCancellationRejectReason] = useState<{ [key: string]: string }>({});
   
   // فتح مودال تعديل التعيينات
   const openAssignmentModal = (order: any) => {
@@ -232,9 +240,11 @@ export default function TasksManagement() {
   const calculateStats = (orders: any[]) => {
     const stats = {
       totalOrders: orders.length,
-      completedOrders: orders.filter(o => o.status === 'completed').length,
-      inProgressOrders: orders.filter(o => o.status === 'in_progress').length,
-      pendingOrders: orders.filter(o => o.status === 'new' || o.status === 'pending').length
+      completedOrders: orders.filter(o => o.status === 'تم الانتهاء').length,
+      inProgressOrders: orders.filter(o => o.status === 'تحت الإجراء').length,
+      pendingOrders: orders.filter(o => o.status === 'new' || o.status === 'تعيين مشرف' || o.status === 'تعيين مندوب').length,
+      cancelledOrders: orders.filter(o => o.status === 'cancelled').length,
+      pendingCancellationOrders: orders.filter(o => o.metadata?.cancellation_requested === true).length
     };
     setStats(stats);
   };
@@ -472,9 +482,138 @@ export default function TasksManagement() {
     }
   };
 
+  const fetchCancellationRequests = async () => {
+    try {
+      setLoadingNotifications(true);
+      const token = Cookies.get('token');
+      
+      // استخدام الـ API الصحيح - delegate-completion
+      const response = await fetch('/api/delegate-completion?status=unread', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // تصفية طلبات الإلغاء فقط (Admin يرى الكل، بما في ذلك التي supervisor_id = NULL)
+        const requests = (data.notifications || []).filter((notif: any) => notif.type === 'cancellation_request');
+        setCancellationRequests(requests);
+        console.log('Cancellation requests for Admin:', requests);
+      }
+    } catch (error) {
+      console.error('Error fetching cancellation requests:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const handleRejectCancellation = async (notificationId: string, orderId: string) => {
+    const reason = cancellationRejectReason[notificationId];
+    if (!reason.trim()) {
+      alert('الرجاء إدخال سبب الرفض');
+      return;
+    }
+
+    try {
+      setRejectingCancellation(notificationId);
+      const token = Cookies.get('token');
+
+      const response = await fetch(`/api/orders/${orderId}/respond-to-cancellation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'reject',
+          reason: reason.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('تم رفض طلب الإلغاء بنجاح');
+        setCancellationRejectReason(prev => {
+          const updated = { ...prev };
+          delete updated[notificationId];
+          return updated;
+        });
+        
+        // حذف الإشعار بعد الرفض
+        await fetch('/api/delegate-completion', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ notificationId, status: 'dismissed' })
+        });
+        
+        fetchCancellationRequests();
+        loadAllData(); // إعادة تحميل الطلبات
+      } else {
+        alert(data.error || 'فشل في رفض الطلب');
+      }
+    } catch (error) {
+      console.error('Error rejecting cancellation:', error);
+      alert('حدث خطأ أثناء معالجة الطلب');
+    } finally {
+      setRejectingCancellation(null);
+    }
+  };
+
+  const handleApproveCancellation = async (notificationId: string, orderId: string) => {
+    if (!window.confirm('هل تريد الموافقة على إلغاء الطلب؟')) {
+      return;
+    }
+
+    try {
+      setRejectingCancellation(notificationId);
+      const token = Cookies.get('token');
+
+      const response = await fetch(`/api/orders/${orderId}/respond-to-cancellation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'approve'
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('تم الموافقة على إلغاء الطلب بنجاح');
+        
+        // حذف الإشعار بعد الموافقة
+        await fetch('/api/delegate-completion', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ notificationId, status: 'acknowledged' })
+        });
+        
+        fetchCancellationRequests();
+        loadAllData(); // إعادة تحميل الطلبات
+      } else {
+        alert(data.error || 'فشل في الموافقة على الطلب');
+      }
+    } catch (error) {
+      console.error('Error approving cancellation:', error);
+      alert('حدث خطأ أثناء معالجة الطلب');
+    } finally {
+      setRejectingCancellation(null);
+    }
+  };
+
   useEffect(() => {
     getCurrentUser();
     loadAllData();
+    fetchCancellationRequests();
   }, []);
 
   return (
@@ -502,24 +641,101 @@ export default function TasksManagement() {
             </div>
 
             {/* إحصائيات عامة */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="text-2xl font-bold text-purple-600">{stats.totalOrders}</div>
-                <div className="text-gray-600">إجمالي الطلبات</div>
+                <div className="text-gray-600 text-sm">إجمالي الطلبات</div>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="text-2xl font-bold text-green-600">{stats.completedOrders}</div>
-                <div className="text-gray-600">طلبات مكتملة</div>
+                <div className="text-gray-600 text-sm">طلبات مكتملة</div>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="text-2xl font-bold text-blue-600">{stats.inProgressOrders}</div>
-                <div className="text-gray-600">قيد التنفيذ</div>
+                <div className="text-gray-600 text-sm">قيد التنفيذ</div>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</div>
-                <div className="text-gray-600">في الانتظار</div>
+                <div className="text-gray-600 text-sm">في الانتظار</div>
+              </div>
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <div className="text-2xl font-bold text-red-600">{stats.cancelledOrders}</div>
+                <div className="text-gray-600 text-sm">طلبات ملغية</div>
+              </div>
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <div className="text-2xl font-bold text-orange-600">{stats.pendingCancellationOrders}</div>
+                <div className="text-gray-600 text-sm">طلبات إلغاء معلقة</div>
               </div>
             </div>
+
+            {/* قسم طلبات الإلغاء */}
+            {cancellationRequests.length > 0 && (
+              <div className="mb-8 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-orange-800 flex items-center gap-2">
+                    ⚠️ طلبات الإلغاء المعلقة ({cancellationRequests.length})
+                  </h2>
+                  <button
+                    onClick={fetchCancellationRequests}
+                    className="text-orange-600 hover:text-orange-800 text-sm"
+                    disabled={loadingNotifications}
+                  >
+                    {loadingNotifications ? 'جاري التحديث...' : '↻ تحديث'}
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  {cancellationRequests.map((request) => (
+                    <div key={request.id} className="bg-white rounded-lg p-4 border border-orange-200 shadow-sm">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <p className="font-semibold text-orange-700 mb-2">
+                            🔢 رقم الطلب: #{request.order_id.slice(-8).toUpperCase()}
+                          </p>
+                          <p className="text-gray-700 mb-2">
+                            {request.message}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(request.created_at).toLocaleString('ar-SA')}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {/* زر قبول الإلغاء */}
+                          <button
+                            onClick={() => handleApproveCancellation(request.id, request.order_id)}
+                            disabled={rejectingCancellation === request.id}
+                            className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            ✓ قبول الإلغاء
+                          </button>
+                          
+                          {/* منطقة رفض الإلغاء مع إدخال السبب */}
+                          <div className="flex flex-col gap-1">
+                            <textarea
+                              placeholder="اكتب سبب الرفض..."
+                              value={cancellationRejectReason[request.id] || ''}
+                              onChange={(e) => setCancellationRejectReason(prev => ({
+                                ...prev,
+                                [request.id]: e.target.value
+                              }))}
+                              className="text-xs p-2 border rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                              rows={2}
+                            />
+                            <button
+                              onClick={() => handleRejectCancellation(request.id, request.order_id)}
+                              disabled={rejectingCancellation === request.id}
+                              className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700 disabled:opacity-50"
+                            >
+                              {rejectingCancellation === request.id ? 'جاري الإرسال...' : 'رفض الإلغاء'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* جدول الطلبات */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -541,9 +757,23 @@ export default function TasksManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.map(order => (
-                      <tr key={order.id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-2">{order.id}</td>
+                    {orders.map(order => {
+                      const isOrderDisabled = order.status === 'cancelled' || 
+                                             (order.metadata && order.metadata.cancellation_requested === true);
+                      
+                      return (
+                      <tr key={order.id} className={`border-b hover:bg-gray-50 ${isOrderDisabled ? 'bg-red-50' : ''}`}>
+                        <td className="px-4 py-2">
+                          <div className="flex flex-col gap-1">
+                            <span>{order.id.slice(-8).toUpperCase()}</span>
+                            {isOrderDisabled && order.metadata?.cancellation_requested && (
+                              <span className="text-xs text-red-600 font-medium">⚠️ طلب إلغاء معلق</span>
+                            )}
+                            {order.status === 'cancelled' && (
+                              <span className="text-xs text-red-600 font-medium">✖ ملغي</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-2">{order.service_name || 'غير محدد'}</td>
                         <td className="px-4 py-2">{order.guardianName}</td>
                         <td className="px-4 py-2">
@@ -576,7 +806,8 @@ export default function TasksManagement() {
                             className="text-sm border rounded px-2 py-1 w-full"
                             value={order.status || 'تعيين مشرف'}
                             onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            disabled={updatingStatus === order.id}
+                            disabled={updatingStatus === order.id || isOrderDisabled}
+                            title={isOrderDisabled ? 'الطلب ملغي أو له طلب إلغاء معلق' : ''}
                           >
                             {validStatusOptions.map(option => (
                               <option key={option.value} value={option.value}>
@@ -594,13 +825,16 @@ export default function TasksManagement() {
                         <td className="px-4 py-2">
                           <button
                             onClick={() => openAssignmentModal(order)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition"
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            disabled={isOrderDisabled}
+                            title={isOrderDisabled ? 'الطلب ملغي أو له طلب إلغاء معلق' : ''}
                           >
                             تعديل التعيينات
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 
