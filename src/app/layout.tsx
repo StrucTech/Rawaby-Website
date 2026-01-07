@@ -5,6 +5,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
+export const dynamic = 'force-dynamic';
+
 const cairo = Cairo({
   subsets: ["arabic"],
   variable: "--font-cairo",

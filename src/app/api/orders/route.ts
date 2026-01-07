@@ -2,6 +2,8 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');

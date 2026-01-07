@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
+export const dynamic = 'force-dynamic';
+
 // =============================================
 // API لرفع العقود الممتلئة والموقعة من العملاء
 // يتم تخزينها في bucket: client-contracts

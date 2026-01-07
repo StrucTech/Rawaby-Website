@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { UserModel } from '@/models/UserSupabase';
 import jwt, { Secret } from 'jsonwebtoken';
 
+export const dynamic = 'force-dynamic';
+
 const JWT_SECRET = process.env.JWT_SECRET as Secret;
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is not set');
 
