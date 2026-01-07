@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+    
     // جلب الإعدادات من قاعدة البيانات
     const { data: settings, error } = await supabaseAdmin
       .from('site_settings')
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching site settings:', error);
-      return NextResponse.json({ error: 'خطأ في جلب الإعدادات' }, { status: 500 });
+      return NextResponse.json({ error: 'خطأ في جلب الإعدادات', details: error.message }, { status: 500 });
     }
 
     // إعدادات افتراضية إذا لم تكن موجودة

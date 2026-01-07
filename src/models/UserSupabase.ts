@@ -1,5 +1,8 @@
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabase, getSupabaseAdmin } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
+
+// Get admin client instance
+const supabaseAdmin = getSupabaseAdmin();
 
 export interface User {
   id: string;

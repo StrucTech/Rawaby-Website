@@ -148,3 +148,4 @@ credentials.json
 .turboignore
 debug.log
 .env.example.local
+.env*.local
