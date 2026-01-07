@@ -14,7 +14,7 @@ interface DecodedToken {
 
 export default function OrderDetailsPage() {
   const params = useParams();
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
   const [orderData, setOrderData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

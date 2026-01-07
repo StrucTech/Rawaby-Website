@@ -24,7 +24,7 @@ interface Contract {
 
 export default function DelegateContractsPage() {
   const params = useParams();
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
   
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
