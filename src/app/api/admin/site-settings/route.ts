@@ -99,6 +99,8 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { about, footer } = body;
 
+    const supabaseAdmin = getSupabaseAdmin();
+    
     // التحقق من وجود سجل موجود
     const { data: existing } = await supabaseAdmin
       .from('site_settings')
