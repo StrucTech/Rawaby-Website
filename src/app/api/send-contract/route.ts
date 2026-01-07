@@ -4,6 +4,8 @@ import { UserModel } from '@/models/UserSupabase';
 import { sendEmail } from '@/lib/mailer';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 // إنشاء عميل Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
