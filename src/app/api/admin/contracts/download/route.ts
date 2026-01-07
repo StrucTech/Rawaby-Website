@@ -32,7 +32,6 @@ export async function GET(req: NextRequest) {
     if (payload.role !== 'admin') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
-    }
 
     const { searchParams } = new URL(req.url);
     const name = searchParams.get('name');

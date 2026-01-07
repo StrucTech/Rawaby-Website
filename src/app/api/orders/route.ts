@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (delegateId && orders) {
-      console.log('Orders for delegate analysis:', orders.map(o => ({
+      console.log('Orders for delegate analysis:', orders.map((o: any) => ({
         id: o.id.substring(0, 8),
         assigned_delegate_id: o.assigned_delegate_id,
         delegate_id: o.delegate_id,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     console.log('Final orders count:', finalOrders.length);
 
     // معالجة البيانات للعمل مع الهيكل الجديد
-    const processedOrders = finalOrders?.map(order => {
+    const processedOrders = finalOrders?.map((order: any) => {
       // استخدام الـ metadata بدلاً من note للتفاصيل
       const metadata = order.metadata || {};
 
@@ -129,13 +129,13 @@ export async function GET(request: NextRequest) {
     
     if (payload.role === 'delegate') {
       // المندوب يرى الطلبات المعينة له فقط
-      filteredOrders = processedOrders.filter(order => 
+      filteredOrders = processedOrders.filter((order: any) => 
         order.assignedDelegate === payload.userId
       );
       console.log(`Filtered ${processedOrders.length} orders to ${filteredOrders.length} for delegate ${payload.userId}`);
     } else if (payload.role === 'supervisor' && role === 'supervisor') {
       // المشرف يرى: الطلبات غير المعينة لأي مشرف + طلباته المعينة
-      filteredOrders = processedOrders.filter(order => 
+      filteredOrders = processedOrders.filter((order: any) => 
         !order.assignedSupervisorId || // طلبات غير معينة لأي مشرف
         order.assignedSupervisorId === payload.userId // أو طلباته المعينة
       );
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
         paymentTimestamp: new Date().toISOString(),
         
         // تفاصيل الخدمات المختارة
-        selectedServices: services.map(service => ({
+        selectedServices: services.map((service: any) => ({
           id: service.id,
           title: service.title,
           price: service.price,
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
         } : null,
         
         // ملخص الطلب
-        serviceName: services.map(s => s.title).join(' + ')
+        serviceName: services.map((s: any) => s.title).join(' + ')
       }
     };
 

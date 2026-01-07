@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
+    if (!supabase) {
+      return NextResponse.json({ 
+        error: 'Supabase client not initialized' 
+      }, { status: 500 });
+    }
+    
     // اختبار الاتصال بـ Supabase
     const { data, error } = await supabase
       .from('users')

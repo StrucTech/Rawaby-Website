@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     // التحقق من وجود bucket العقود وإنشاؤه إذا لم يكن موجوداً
     try {
       const { data: buckets } = await supabaseAdmin.storage.listBuckets();
-      const clientContractsBucket = buckets?.find(b => b.name === clientBucket);
+      const clientContractsBucket = buckets?.find((b: any) => b.name === clientBucket);
       
       if (!clientContractsBucket) {
         console.log('Creating client-contracts bucket...');

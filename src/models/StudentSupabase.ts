@@ -204,7 +204,7 @@ export class StudentModel {
 
     // تجميع النتائج
     const stats: { [key: string]: number } = {};
-    data?.forEach(student => {
+    data?.forEach((student: any) => {
       stats[student.certificate_type] = (stats[student.certificate_type] || 0) + 1;
     });
 
