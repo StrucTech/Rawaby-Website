@@ -116,22 +116,40 @@ export async function GET(
       error: contractsError?.message 
     });
 
-    // إذا لم تُوجد عقود بالـ order_id، جرب البحث عن عقود العميل
+    // إذا لم تُوجد عقود بالـ order_id، جرب البحث عن عقود العميل (التي لم تُربط بعد)
     let finalContracts = contracts || [];
     if ((!finalContracts || finalContracts.length === 0) && order.client_id) {
-      console.log('No contracts found by order_id, searching by client_id...');
+      console.log('No contracts found by order_id, searching for unlinked client contracts...');
       
+      // البحث عن عقود العميل التي لم تُربط بطلب (order_id = NULL)
       const { data: clientContracts, error: clientContractsError } = await supabaseAdmin
         .from('contracts')
         .select('*')
-        .eq('user_id', order.client_id);
+        .eq('user_id', order.client_id)
+        .or('order_id.is.null,order_id.eq.' + orderId); // العقود غير المربوطة أو المربوطة بهذا الطلب
       
-      console.log('Client contracts query result:', { 
+      console.log('Unlinked client contracts query result:', { 
         count: clientContracts?.length || 0, 
         error: clientContractsError?.message 
       });
       
       if (clientContracts && clientContracts.length > 0) {
+        // ربط العقود غير المربوطة بهذا الطلب تلقائياً
+        const unlinkedContracts = clientContracts.filter((c: any) => !c.order_id);
+        if (unlinkedContracts.length > 0) {
+          console.log('Auto-linking', unlinkedContracts.length, 'unlinked contracts...');
+          const { error: linkError } = await supabaseAdmin
+            .from('contracts')
+            .update({ order_id: orderId })
+            .in('id', unlinkedContracts.map((c: any) => c.id));
+          
+          if (linkError) {
+            console.error('Error auto-linking contracts:', linkError);
+          } else {
+            console.log('Successfully auto-linked contracts to order');
+          }
+        }
+        
         finalContracts = clientContracts;
       }
     }

@@ -288,6 +288,8 @@ export async function POST(request: NextRequest) {
       // ربط العقود المرفوعة مسبقاً بهذا الطلب
       try {
         console.log('Linking existing contracts to order...');
+        
+        // أولاً: ربط العقود من قاعدة البيانات
         const { data: updatedContracts, error: contractsError } = await supabaseAdmin
           .from('contracts')
           .update({ order_id: order.id })
@@ -298,9 +300,72 @@ export async function POST(request: NextRequest) {
         if (contractsError) {
           console.error('Error linking contracts to order:', contractsError);
         } else if (updatedContracts && updatedContracts.length > 0) {
-          console.log(`Successfully linked ${updatedContracts.length} contracts to order ${order.id}`);
+          console.log(`✅ Successfully linked ${updatedContracts.length} database contracts to order ${order.id}`);
         } else {
-          console.log('No contracts found to link to this order');
+          console.log('ℹ️ No unlinked contracts in database to link to this order');
+        }
+
+        // ثانياً: التحقق من وجود عقود في Storage وإضافتها إلى قاعدة البيانات إذا لزم
+        try {
+          const bucketName = 'client-contracts';
+          const clientFolder = `client-${payload.userId.substring(0, 8)}`;
+          
+          // البحث عن مجلدات الطلبات في مجلد العميل
+          const { data: orderFolders } = await supabaseAdmin.storage
+            .from(bucketName)
+            .list(`${clientFolder}/`, { limit: 100 });
+          
+          if (orderFolders && orderFolders.length > 0) {
+            console.log(`Found ${orderFolders.length} order folders in storage`);
+            
+            // البحث عن عقود غير مسجلة في قاعدة البيانات
+            for (const orderFolder of orderFolders) {
+              if (orderFolder.name.startsWith('order-')) {
+                const folderPath = `${clientFolder}/${orderFolder.name}`;
+                
+                // التحقق من وجود عقود في هذا المجلد
+                const { data: contractFiles } = await supabaseAdmin.storage
+                  .from(bucketName)
+                  .list(`${folderPath}/`, { limit: 10 });
+                
+                if (contractFiles && contractFiles.length > 0) {
+                  // التحقق من وجود هذا العقد في قاعدة البيانات
+                  const { data: existingContract } = await supabaseAdmin
+                    .from('contracts')
+                    .select('id')
+                    .eq('client_folder', clientFolder)
+                    .eq('storage_bucket', bucketName)
+                    .single();
+                  
+                  if (!existingContract) {
+                    // إضافة العقد إلى قاعدة البيانات وربطه بالطلب
+                    const contract1File = contractFiles.find(f => f.name.includes('contract1'));
+                    const contract2File = contractFiles.find(f => f.name.includes('contract2'));
+                    
+                    const { error: insertError } = await supabaseAdmin
+                      .from('contracts')
+                      .insert({
+                        user_id: payload.userId,
+                        order_id: order.id,
+                        contract1_url: contract1File?.name || 'العقد الأول',
+                        contract2_url: contract2File?.name || 'العقد الثاني',
+                        contract1_filename: contract1File?.name || '',
+                        contract2_filename: contract2File?.name || '',
+                        storage_bucket: bucketName,
+                        client_folder: clientFolder,
+                        status: 'uploaded'
+                      });
+                    
+                    if (!insertError) {
+                      console.log(`✅ Added storage contract from ${folderPath} to database`);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (storageError) {
+          console.log('Note: Could not process storage contracts:', storageError instanceof Error ? storageError.message : 'Unknown error');
         }
       } catch (contractLinkError) {
         console.error('Error in contract linking process:', contractLinkError);
