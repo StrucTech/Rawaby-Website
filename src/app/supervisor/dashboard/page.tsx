@@ -589,6 +589,12 @@ export default function SupervisorDashboard() {
         const data = await res.json();
         setDataRequests(data.requests || []);
         setShowFilesModal(true);
+        
+        // إظهار إشعار للملفات المرفوعة الجديدة
+        const respondedRequests = (data.requests || []).filter((req: any) => req.status === 'responded');
+        if (respondedRequests.length > 0) {
+          alert(`✅ العميل قام برفع ${respondedRequests.length} طلب بيانات`);
+        }
       }
     } catch (error) {
       console.error('Error fetching data requests:', error);
@@ -834,7 +840,6 @@ export default function SupervisorDashboard() {
               <th className="p-2">العميل</th>
               <th className="p-2">الحالة</th>
               <th className="p-2">المندوب المُعيّن</th>
-              <th className="p-2">نُفذت بواسطة</th>
               <th className="p-2">تفاصيل</th>
               <th className="p-2">مراسلة العميل</th>
               <th className="p-2">تحديث الحالة</th>
@@ -843,7 +848,7 @@ export default function SupervisorDashboard() {
           </thead>
           <tbody>
             {orders.length === 0 ? (
-              <tr><td colSpan={9} className="text-center p-4">لا توجد مهام حالياً</td></tr>
+              <tr><td colSpan={8} className="text-center p-4">لا توجد مهام حالياً</td></tr>
             ) : orders.map(order => {
               // استخراج البيانات من الحقول الجديدة والـ metadata
               let clientName = order.client?.name || 'غير محدد';
@@ -895,17 +900,6 @@ export default function SupervisorDashboard() {
                     <span className="text-green-600 font-medium">{assignedDelegate.name}</span>
                   ) : (
                     <span className="text-gray-400">غير معين</span>
-                  )}
-                </td>
-                <td className="p-2">
-                  {order.status === 'completed' && completedByDelegate ? (
-                    <div className="text-blue-600 bg-blue-100 px-2 py-1 rounded text-sm font-medium">
-                      ✓ {completedByDelegate.name}
-                    </div>
-                  ) : order.status === 'completed' ? (
-                    <span className="text-green-600 text-sm">تم الإنجاز</span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">لم تكتمل</span>
                   )}
                 </td>
                 <td className="p-2">
