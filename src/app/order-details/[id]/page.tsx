@@ -48,6 +48,7 @@ export default function OrderDetailsPage() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.error('API error response:', errorData);
+          console.error('Decoded user info:', userInfo);
           throw new Error(`فشل في جلب تفاصيل الطلب: ${response.status} - ${errorData.error || 'خطأ غير معروف'}`);
         }
 

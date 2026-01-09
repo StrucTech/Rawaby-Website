@@ -6,12 +6,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No auth header found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,13 +21,18 @@ export async function GET(
     
     try {
       payload = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+      console.log('Token verified. Payload:', payload);
     } catch (error) {
+      console.error('Token verification error:', error);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    const orderId = params.id;
+    // Handle params as Promise or direct object
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const orderId = resolvedParams.id;
 
     if (!orderId) {
+      console.log('No order ID provided');
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
@@ -69,7 +75,26 @@ export async function GET(
     });
 
     if (!canAccess) {
-      return NextResponse.json({ error: 'غير مصرح لك بعرض هذا الطلب' }, { status: 403 });
+      console.log('Access denied! Details:', {
+        orderId,
+        userId: payload.userId,
+        role: payload.role,
+        clientId: order.client_id,
+        assignedDelegateId: order.assigned_delegate_id,
+        isAdmin: payload.role === 'admin',
+        isSupervisor: payload.role === 'supervisor',
+        isDelegateAndAssigned: payload.role === 'delegate' && order.assigned_delegate_id === payload.userId,
+        isClient: order.client_id === payload.userId
+      });
+      return NextResponse.json({ 
+        error: 'غير مصرح لك بعرض هذا الطلب',
+        debug: {
+          role: payload.role,
+          userId: payload.userId,
+          assignedDelegateId: order.assigned_delegate_id,
+          clientId: order.client_id
+        }
+      }, { status: 403 });
     }
 
     console.log('Order found:', order.id);
