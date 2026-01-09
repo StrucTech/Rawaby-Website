@@ -129,7 +129,6 @@ export default function DelegateTasksPage() {
     <div className="max-w-4xl mx-auto py-10">
       <h2 className="text-2xl font-bold mb-6">مهامي كمندوب</h2>
       <div className="mb-4 p-4 bg-blue-50 rounded">
-        <p><strong>معرف المندوب:</strong> {delegateId}</p>
         <p><strong>عدد المهام:</strong> {tasks.length}</p>
       </div>
       <table className="w-full border rounded">
@@ -163,7 +162,7 @@ export default function DelegateTasksPage() {
                     className="text-blue-600 hover:text-blue-800 underline"
                     onClick={() => window.open(`/order-details/${task.id}`, '_blank')}
                   >
-                    طلب رقم {task.id.substring(0, 8)}
+                    طلب رقم {task.id.slice(-8).toUpperCase()}
                   </button>
                 </td>
                 <td className="p-2">{taskData.studentInfo?.name || taskData.guardianName || 'غير محدد'}</td>
@@ -181,7 +180,7 @@ export default function DelegateTasksPage() {
                     'bg-yellow-100 text-yellow-800'
                   }`}>
                     {task.status === 'completed' ? '✓ تم التنفيذ' : 
-                     task.status === 'in progress' || task.status === 'in_progress' ? 'قيد التنفيذ' : 
+                     task.status === 'in progress' || task.status === 'in_progress' ? 'جاري العمل' : 
                      'معلق'}
                   </span>
                 </td>

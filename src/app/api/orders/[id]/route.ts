@@ -30,7 +30,7 @@ export async function GET(
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
-    console.log('Getting order details for ID:', orderId);
+    console.log('Getting order details for ID:', orderId, 'by user:', payload.userId, 'role:', payload.role);
 
     // جلب تفاصيل الطلب من قاعدة البيانات مع العلاقات
     const { data: order, error } = await supabaseAdmin
@@ -58,6 +58,15 @@ export async function GET(
       payload.role === 'supervisor' ||
       (payload.role === 'delegate' && order.assigned_delegate_id === payload.userId) ||
       order.client_id === payload.userId;
+
+    console.log('Access check:', {
+      orderId,
+      userId: payload.userId,
+      role: payload.role,
+      clientId: order.client_id,
+      assignedDelegateId: order.assigned_delegate_id,
+      canAccess
+    });
 
     if (!canAccess) {
       return NextResponse.json({ error: 'غير مصرح لك بعرض هذا الطلب' }, { status: 403 });
