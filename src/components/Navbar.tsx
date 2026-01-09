@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import jwt_decode from 'jwt-decode';
 import NotificationBadge from './NotificationBadge';
-import UserNotificationBadge from './UserNotificationBadge';
 
 interface DecodedToken {
   userId: string;
@@ -72,6 +71,7 @@ export default function Navbar() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [ordersNotificationCount, setOrdersNotificationCount] = useState(0);
+  const [messagesNotificationCount, setMessagesNotificationCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -137,6 +137,36 @@ export default function Navbar() {
     }
   }, [userRole]);
 
+  // جلب عدد الرسائل التي تحتاج رد للعميل
+  useEffect(() => {
+    const fetchMessagesCount = async () => {
+      if (userRole !== 'user') return;
+      
+      try {
+        const token = Cookies.get('token');
+        const response = await fetch('/api/user/data-requests', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const pendingCount = (data.requests || []).filter(
+            (r: any) => r.status === 'pending'
+          ).length;
+          setMessagesNotificationCount(pendingCount);
+        }
+      } catch (error) {
+        console.error('Error fetching messages count:', error);
+      }
+    };
+
+    if (userRole === 'user') {
+      fetchMessagesCount();
+      const interval = setInterval(fetchMessagesCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userRole]);
+
   const handleLogout = () => {
     Cookies.remove('token');
     setUserName(null);
@@ -196,6 +226,12 @@ export default function Navbar() {
                         {ordersNotificationCount}
                       </span>
                     )}
+                    {/* Badge للرسائل */}
+                    {item.href === '/messages' && messagesNotificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full animate-pulse">
+                        {messagesNotificationCount}
+                      </span>
+                    )}
                   </Link>
                 )
               ))}
@@ -207,7 +243,6 @@ export default function Navbar() {
             {isAuthenticated && userName && (
               <div className="flex items-center space-x-4 space-x-reverse">
                 {userRole === 'delegate' && <NotificationBadge />}
-                {userRole === 'user' && <UserNotificationBadge />}
                 <span className="text-blue-700 font-semibold">مرحباً، {userName}</span>
                 {userRole === 'supervisor' && (
                   <span className="text-blue-600 font-medium px-3 py-2 rounded-md"></span>
@@ -284,30 +319,46 @@ export default function Navbar() {
             </div>
           )}
           {navigation.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`block pr-3 pl-3 py-2 border-r-4 text-base font-medium ${
-                pathname === item.href
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
-                  : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              {item.name}
-            </Link>
+            item.isLogout ? (
+              <button
+                key={item.name}
+                onClick={() => {
+                  handleLogout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="block w-full text-right pr-3 pl-3 py-2 border-r-4 text-base font-medium text-red-600 hover:bg-red-50 hover:border-red-300"
+              >
+                {item.name}
+              </button>
+            ) : (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`block pr-3 pl-3 py-2 border-r-4 text-base font-medium relative ${
+                  pathname === item.href
+                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                    : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span className="flex items-center justify-between">
+                  {item.name}
+                  {/* Badge للرسائل في الجوال */}
+                  {item.href === '/messages' && messagesNotificationCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {messagesNotificationCount}
+                    </span>
+                  )}
+                  {/* Badge للطلبات في الجوال */}
+                  {item.href === '/my-orders' && ordersNotificationCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {ordersNotificationCount}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            )
           ))}
-          {isAuthenticated && (
-            <button
-              onClick={() => {
-                handleLogout();
-                setIsMobileMenuOpen(false);
-              }}
-              className="block w-full text-right pr-3 pl-3 py-2 border-r-4 text-base font-medium text-red-600 hover:bg-red-50 hover:border-red-300"
-            >
-              تسجيل الخروج
-            </button>
-          )}
         </div>
       </div>
     </nav>

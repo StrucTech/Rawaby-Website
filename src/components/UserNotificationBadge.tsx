@@ -62,22 +62,38 @@ export default function UserNotificationBadge() {
     
     try {
       const token = Cookies.get('token');
+      const allNotifications: Notification[] = [];
       
-      // جلب رسائل العميل العادية + عدد طلبات البيانات
-      const countResponse = await fetch('/api/user/notifications/unread', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      let regularCount = 0;
-      let pendingDataRequestsCount = 0;
-      if (countResponse.ok) {
-        const countData = await countResponse.json();
-        regularCount = countData.unreadCount || 0;
-        pendingDataRequestsCount = countData.breakdown?.pendingDataRequests || 0;
+      // أولاً: جلب طلبات البيانات المنتظرة (هذا هو المصدر الرئيسي للإشعارات)
+      try {
+        const dataRequestsResponse = await fetch('/api/user/data-requests', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (dataRequestsResponse.ok) {
+          const data = await dataRequestsResponse.json();
+          console.log('Data requests response:', data);
+          const pendingRequests = (data.requests || []).filter((r: DataRequest) => r.status === 'pending');
+          console.log('Pending requests:', pendingRequests);
+          // تحويل طلبات البيانات إلى صيغة Notification
+          pendingRequests.forEach((req: DataRequest) => {
+            allNotifications.push({
+              id: req.id,
+              subject: '📋 طلب بيانات من المشرف',
+              message: req.message,
+              status: 'sent',
+              priority: 'high',
+              created_at: req.created_at,
+              sender: req.supervisor || { id: '', name: 'المشرف', email: '' },
+              type: 'data_request',
+              order_id: req.order_id
+            });
+          });
+        }
+      } catch (e) {
+        console.log('Error fetching data requests:', e);
       }
 
       // جلب إشعارات الإلغاء
-      let cancellationCount = 0;
       try {
         const cancellationResponse = await fetch('/api/delegate-completion?status=unread', {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -88,67 +104,47 @@ export default function UserNotificationBadge() {
           const clientNotifications = (data.notifications || []).filter(
             (n: any) => n.type === 'cancellation_approved' || n.type === 'cancellation_rejected'
           );
-          cancellationCount = clientNotifications.length;
+          // إضافة إشعارات الإلغاء
+          clientNotifications.forEach((n: any) => {
+            allNotifications.push({
+              id: n.id,
+              subject: n.type === 'cancellation_approved' ? '✅ تمت الموافقة على الإلغاء' : '❌ تم رفض طلب الإلغاء',
+              message: n.message || '',
+              status: 'sent',
+              priority: 'normal',
+              created_at: n.created_at,
+              sender: { id: '', name: 'النظام', email: '' },
+              type: n.type
+            });
+          });
         }
       } catch (e) {
         console.log('No cancellation notifications');
       }
-
-      // مجموع الإشعارات (نستخدم regularCount لأنه يشمل pendingDataRequests بالفعل)
-      const totalCount = regularCount + cancellationCount;
-      setUnreadCount(totalCount);
-
-      // جلب الرسائل الحديثة فقط إذا كان هناك رسائل غير مقروءة
-      if (totalCount > 0) {
-        const allNotifications: Notification[] = [];
         
-        // جلب طلبات البيانات المنتظرة
-        if (pendingDataRequestsCount > 0) {
-          try {
-            const dataRequestsResponse = await fetch('/api/user/data-requests', {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (dataRequestsResponse.ok) {
-              const data = await dataRequestsResponse.json();
-              const pendingRequests = (data.requests || []).filter((r: DataRequest) => r.status === 'pending');
-              // تحويل طلبات البيانات إلى صيغة Notification
-              pendingRequests.forEach((req: DataRequest) => {
-                allNotifications.push({
-                  id: req.id,
-                  subject: '📋 طلب بيانات من المشرف',
-                  message: req.message,
-                  status: 'sent',
-                  priority: 'high',
-                  created_at: req.created_at,
-                  sender: req.supervisor || { id: '', name: 'المشرف', email: '' },
-                  type: 'data_request',
-                  order_id: req.order_id
-                });
-              });
-            }
-          } catch (e) {
-            console.log('Error fetching data requests:', e);
-          }
+      // جلب الرسائل العادية
+      try {
+        const messagesResponse = await fetch('/api/user/messages', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (messagesResponse.ok) {
+          const messagesData = await messagesResponse.json();
+          const unreadNotifications = messagesData.notifications?.filter((n: Notification) => n.status === 'sent') || [];
+          allNotifications.push(...unreadNotifications);
         }
-        
-        // جلب الرسائل العادية
-        try {
-          const messagesResponse = await fetch('/api/user/messages', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (messagesResponse.ok) {
-            const messagesData = await messagesResponse.json();
-            const unreadNotifications = messagesData.notifications?.filter((n: Notification) => n.status === 'sent') || [];
-            allNotifications.push(...unreadNotifications);
-          }
-        } catch (e) {
-          console.log('Error fetching messages:', e);
-        }
-        
-        // ترتيب حسب التاريخ وأخذ أحدث 3
-        allNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setRecentNotifications(allNotifications.slice(0, 3));
+      } catch (e) {
+        console.log('Error fetching messages:', e);
       }
+      
+      // ترتيب حسب التاريخ
+      allNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      // تحديث العداد والقائمة
+      setUnreadCount(allNotifications.length);
+      setRecentNotifications(allNotifications.slice(0, 5)); // أحدث 5 رسائل
+      
+      console.log('Total notifications:', allNotifications.length);
+      console.log('Recent notifications:', allNotifications.slice(0, 5));
     } catch (error) {
       console.error('خطأ في جلب الإشعارات:', error);
     }

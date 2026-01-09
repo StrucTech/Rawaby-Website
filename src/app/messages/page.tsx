@@ -231,7 +231,7 @@ export default function UserMessages() {
 
                         {/* معلومات الطلب المرتبط */}
                         <div className="text-sm text-gray-600 mb-4 bg-white p-3 rounded border">
-                          <strong>الطلب:</strong> رقم {request.order_id.substring(0, 8)}
+                          <strong>الطلب:</strong> رقم {request.order_id.slice(-8).toUpperCase()}
                           {request.orders?.metadata?.studentInfo && (
                             <span className="mr-2">
                               | الطالب: {request.orders.metadata.studentInfo.fullName || request.orders.metadata.studentInfo.name}
