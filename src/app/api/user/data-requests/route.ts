@@ -16,8 +16,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const payload = verifyToken(authToken);
-    if (!payload) {
+    let payload;
+    try {
+      payload = verifyToken(authToken);
+    } catch (error) {
+      console.error('Token verification error:', error);
       return NextResponse.json({ error: 'رمز غير صالح' }, { status: 401 });
     }
 
@@ -36,8 +39,14 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching data requests:', error);
       return NextResponse.json({ error: 'خطأ في جلب الطلبات' }, { status: 500 });
     }
+    
+    // حساب عدد الطلبات في انتظار الرد
+    const pendingCount = requests?.filter(r => r.status === 'pending').length || 0;
 
-    return NextResponse.json({ requests });
+    return NextResponse.json({ 
+      requests,
+      pendingCount 
+    });
   } catch (error) {
     console.error('Server error:', error);
     return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });

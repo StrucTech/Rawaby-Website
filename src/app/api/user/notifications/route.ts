@@ -8,12 +8,13 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// GET - جلب عدد الإشعارات غير المقروءة للعميل
 export async function GET(request: NextRequest) {
   try {
     const authToken = request.cookies.get('token')?.value;
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '') || authToken;
-    
+
     if (!token) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -25,47 +26,41 @@ export async function GET(request: NextRequest) {
       console.error('Token verification error:', error);
       return NextResponse.json({ error: 'رمز غير صالح' }, { status: 401 });
     }
-    
-    if (payload.role !== 'user') {
-      return NextResponse.json({ error: 'غير مصرح - مطلوب صلاحية مستخدم' }, { status: 403 });
-    }
 
-    const userId = payload.userId;
-
-    // جلب عدد الرسائل غير المقروءة من جدول notifications
-    const { count: notificationsCount, error: notifError } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('recipient_id', userId)
-      .eq('status', 'sent')
-      .in('type', ['customer_update', 'customer_inquiry', 'message']);
-
-    if (notifError) {
-      console.error('خطأ في جلب عدد الإشعارات:', notifError);
-    }
-
-    // جلب عدد طلبات البيانات في انتظار الرد من العميل
+    // حساب عدد طلبات البيانات في انتظار الرد من العميل
     const { count: pendingDataRequests, error: dataRequestError } = await supabase
       .from('data_requests')
       .select('*', { count: 'exact', head: true })
-      .eq('client_id', userId)
+      .eq('client_id', payload.userId)
       .eq('status', 'pending');
 
     if (dataRequestError) {
-      console.error('خطأ في جلب عدد طلبات البيانات:', dataRequestError);
+      console.error('Error counting pending data requests:', dataRequestError);
     }
 
-    const totalUnreadCount = (notificationsCount || 0) + (pendingDataRequests || 0);
+    // حساب عدد الطلبات التي تحتاج انتباه العميل (حالة "بانتظار رد العميل")
+    const { count: ordersAwaitingResponse, error: ordersError } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', payload.userId)
+      .eq('status', 'بانتظار رد العميل');
 
-    return NextResponse.json({ 
-      unreadCount: totalUnreadCount,
-      breakdown: {
-        notifications: notificationsCount || 0,
-        pendingDataRequests: pendingDataRequests || 0
+    if (ordersError) {
+      console.error('Error counting orders awaiting response:', ordersError);
+    }
+
+    const totalNotifications = (pendingDataRequests || 0) + (ordersAwaitingResponse || 0);
+
+    return NextResponse.json({
+      success: true,
+      notifications: {
+        pendingDataRequests: pendingDataRequests || 0,
+        ordersAwaitingResponse: ordersAwaitingResponse || 0,
+        total: totalNotifications
       }
     });
   } catch (error) {
-    console.error('خطأ في الخادم:', error);
+    console.error('Server error:', error);
     return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
   }
 }

@@ -86,8 +86,12 @@ export default function ClientDataRequestsPage() {
       });
       formData.append('note', clientNote);
 
+      const token = Cookies.get('token');
       const response = await fetch(`/api/orders/${orderId}/data-requests/${requestId}`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData
       });
 

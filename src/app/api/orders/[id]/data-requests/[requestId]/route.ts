@@ -22,8 +22,11 @@ export async function POST(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    if (!payload) {
+    let payload;
+    try {
+      payload = verifyToken(token);
+    } catch (error) {
+      console.error('Token verification error:', error);
       return NextResponse.json({ error: 'رمز غير صالح' }, { status: 401 });
     }
 
@@ -148,8 +151,11 @@ export async function GET(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    if (!payload) {
+    let payload;
+    try {
+      payload = verifyToken(token);
+    } catch (error) {
+      console.error('Token verification error:', error);
       return NextResponse.json({ error: 'رمز غير صالح' }, { status: 401 });
     }
 
@@ -191,8 +197,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    if (!payload || (payload.role !== 'supervisor' && payload.role !== 'admin')) {
+    let payload;
+    try {
+      payload = verifyToken(token);
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return NextResponse.json({ error: 'رمز غير صالح' }, { status: 401 });
+    }
+    
+    if (payload.role !== 'supervisor' && payload.role !== 'admin') {
       return NextResponse.json({ error: 'غير مصرح - مطلوب صلاحية مشرف' }, { status: 403 });
     }
 
