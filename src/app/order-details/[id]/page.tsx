@@ -33,6 +33,7 @@ export default function OrderDetailsPage() {
         try {
           const decoded = jwt_decode(token) as DecodedToken;
           setUserInfo(decoded);
+          console.log('Decoded user info:', decoded);
         } catch (error) {
           setError('رمز المصادقة غير صالح');
           return;
@@ -45,7 +46,9 @@ export default function OrderDetailsPage() {
         });
 
         if (!response.ok) {
-          throw new Error('فشل في جلب تفاصيل الطلب');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API error response:', errorData);
+          throw new Error(`فشل في جلب تفاصيل الطلب: ${response.status} - ${errorData.error || 'خطأ غير معروف'}`);
         }
 
         const data = await response.json();

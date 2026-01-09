@@ -86,7 +86,7 @@ function LoginForm() {
       }
 
       // Store token in cookies
-      Cookies.set('token', data.token, { expires: 7 }); // Expires in 7 days
+      Cookies.set('token', data.token, { expires: 7, path: '/' }); // Expires in 7 days
 
       // Show welcome message with user's name from the response
       setUserName(data.user.name);
