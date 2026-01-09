@@ -58,6 +58,8 @@ export async function POST(
     const files = formData.getAll('files') as File[];
     const clientNote = formData.get('note') as string || '';
 
+    console.log(`Processing data request upload: orderId=${orderId}, requestId=${requestId}, filesCount=${files.length}`);
+
     if (files.length === 0) {
       return NextResponse.json({ error: 'يجب رفع ملف واحد على الأقل' }, { status: 400 });
     }
@@ -65,40 +67,51 @@ export async function POST(
     const uploadedFiles: any[] = [];
 
     // رفع الملفات إلى Supabase Storage
-    for (const file of files) {
-      const fileName = `${orderId}/${requestId}/${Date.now()}_${file.name}`;
-      const buffer = await file.arrayBuffer();
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const fileName = `${orderId}/${requestId}/${Date.now()}_${i}_${file.name}`;
+        console.log(`Uploading file ${i + 1}/${files.length}: ${file.name}`);
+        const buffer = await file.arrayBuffer();
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('client-uploads')
-        .upload(fileName, buffer, {
-          contentType: file.type,
-          upsert: false
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('client-uploads')
+          .upload(fileName, buffer, {
+            contentType: file.type,
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error(`Upload error for file ${file.name}:`, uploadError);
+          continue;
+        }
+
+        console.log(`Successfully uploaded: ${fileName}`);
+
+        // الحصول على الرابط العام
+        const { data: urlData } = supabase.storage
+          .from('client-uploads')
+          .getPublicUrl(fileName);
+
+        uploadedFiles.push({
+          name: file.name,
+          path: fileName,
+          url: urlData.publicUrl,
+          type: file.type,
+          size: file.size,
+          uploaded_at: new Date().toISOString()
         });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        continue;
+      } catch (fileError) {
+        console.error(`Exception while uploading file ${file.name}:`, fileError);
       }
-
-      // الحصول على الرابط العام
-      const { data: urlData } = supabase.storage
-        .from('client-uploads')
-        .getPublicUrl(fileName);
-
-      uploadedFiles.push({
-        name: file.name,
-        path: fileName,
-        url: urlData.publicUrl,
-        type: file.type,
-        size: file.size,
-        uploaded_at: new Date().toISOString()
-      });
     }
 
     if (uploadedFiles.length === 0) {
+      console.error('No files were successfully uploaded');
       return NextResponse.json({ error: 'فشل في رفع الملفات' }, { status: 500 });
     }
+
+    console.log(`Successfully uploaded ${uploadedFiles.length} files, updating data_requests table`);
 
     // تحديث طلب البيانات
     const { data: updatedRequest, error: updateError } = await supabase
@@ -107,9 +120,7 @@ export async function POST(
         status: 'responded',
         uploaded_files: uploadedFiles,
         client_note: clientNote,
-        responded_at: new Date().toISOString(),
-        responded_by: 'client',
-        responded_by_id: payload.userId
+        responded_at: new Date().toISOString()
       })
       .eq('id', requestId)
       .select()
@@ -119,6 +130,8 @@ export async function POST(
       console.error('Update error:', updateError);
       return NextResponse.json({ error: 'خطأ في تحديث الطلب' }, { status: 500 });
     }
+
+    console.log('Successfully updated data_requests, updating orders table');
 
     // تحديث حالة الطلب الرئيسي إلى "مطلوب بيانات إضافية" (للمراجعة من المشرف)
     await supabase
