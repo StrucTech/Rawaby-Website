@@ -846,14 +846,13 @@ export default function SupervisorDashboard() {
               <tr><td colSpan={9} className="text-center p-4">لا توجد مهام حالياً</td></tr>
             ) : orders.map(order => {
               // استخراج البيانات من الحقول الجديدة والـ metadata
-              let guardianName = 'غير محدد';
+              let clientName = order.client?.name || 'غير محدد';
               let assignedDelegateId = order.assigned_delegate_id;
               let completedByDelegateId = null;
               
               try {
-                // استخراج اسم الوالد من metadata
+                // استخراج بيانات إضافية من metadata
                 const metadata = order.metadata ? (typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata) : {};
-                guardianName = metadata.guardianInfo?.fullName || 'غير محدد';
                 // في حالة وجود بيانات إضافية في metadata
                 completedByDelegateId = metadata.completedBy || null;
               } catch (e) {
@@ -885,7 +884,7 @@ export default function SupervisorDashboard() {
                     )}
                   </div>
                 </td>
-                <td className="p-2">{guardianName}</td>
+                <td className="p-2">{clientName}</td>
                 <td className="p-2">
                   <span className={`px-2 py-1 rounded text-sm ${getStatusInfo(order.status).color}`}>
                     {getStatusInfo(order.status).label}
