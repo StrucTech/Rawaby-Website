@@ -19,6 +19,21 @@ interface Notification {
   priority: string;
   created_at: string;
   sender: User;
+  type?: string;
+  order_id?: string;
+}
+
+interface DataRequest {
+  id: string;
+  order_id: string;
+  message: string;
+  status: string;
+  created_at: string;
+  supervisor?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
 export default function UserNotificationBadge() {
@@ -48,15 +63,17 @@ export default function UserNotificationBadge() {
     try {
       const token = Cookies.get('token');
       
-      // جلب رسائل العميل العادية
+      // جلب رسائل العميل العادية + عدد طلبات البيانات
       const countResponse = await fetch('/api/user/notifications/unread', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       let regularCount = 0;
+      let pendingDataRequestsCount = 0;
       if (countResponse.ok) {
         const countData = await countResponse.json();
         regularCount = countData.unreadCount || 0;
+        pendingDataRequestsCount = countData.breakdown?.pendingDataRequests || 0;
       }
 
       // جلب إشعارات الإلغاء
@@ -77,20 +94,60 @@ export default function UserNotificationBadge() {
         console.log('No cancellation notifications');
       }
 
-      // مجموع الإشعارات
+      // مجموع الإشعارات (نستخدم regularCount لأنه يشمل pendingDataRequests بالفعل)
       const totalCount = regularCount + cancellationCount;
       setUnreadCount(totalCount);
 
       // جلب الرسائل الحديثة فقط إذا كان هناك رسائل غير مقروءة
       if (totalCount > 0) {
-        const messagesResponse = await fetch('/api/user/messages', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (messagesResponse.ok) {
-          const messagesData = await messagesResponse.json();
-          const unreadNotifications = messagesData.notifications?.filter((n: Notification) => n.status === 'sent') || [];
-          setRecentNotifications(unreadNotifications.slice(0, 3)); // أحدث 3 رسائل
+        const allNotifications: Notification[] = [];
+        
+        // جلب طلبات البيانات المنتظرة
+        if (pendingDataRequestsCount > 0) {
+          try {
+            const dataRequestsResponse = await fetch('/api/user/data-requests', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (dataRequestsResponse.ok) {
+              const data = await dataRequestsResponse.json();
+              const pendingRequests = (data.requests || []).filter((r: DataRequest) => r.status === 'pending');
+              // تحويل طلبات البيانات إلى صيغة Notification
+              pendingRequests.forEach((req: DataRequest) => {
+                allNotifications.push({
+                  id: req.id,
+                  subject: '📋 طلب بيانات من المشرف',
+                  message: req.message,
+                  status: 'sent',
+                  priority: 'high',
+                  created_at: req.created_at,
+                  sender: req.supervisor || { id: '', name: 'المشرف', email: '' },
+                  type: 'data_request',
+                  order_id: req.order_id
+                });
+              });
+            }
+          } catch (e) {
+            console.log('Error fetching data requests:', e);
+          }
         }
+        
+        // جلب الرسائل العادية
+        try {
+          const messagesResponse = await fetch('/api/user/messages', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            const unreadNotifications = messagesData.notifications?.filter((n: Notification) => n.status === 'sent') || [];
+            allNotifications.push(...unreadNotifications);
+          }
+        } catch (e) {
+          console.log('Error fetching messages:', e);
+        }
+        
+        // ترتيب حسب التاريخ وأخذ أحدث 3
+        allNotifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setRecentNotifications(allNotifications.slice(0, 3));
       }
     } catch (error) {
       console.error('خطأ في جلب الإشعارات:', error);
@@ -176,10 +233,17 @@ export default function UserNotificationBadge() {
                 recentNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                      notification.type === 'data_request' ? 'bg-yellow-50' : ''
+                    }`}
                     onClick={() => {
                       setShowDropdown(false);
-                      router.push('/messages');
+                      // إذا كان طلب بيانات، اذهب لصفحة الرسائل/طلبات البيانات
+                      if (notification.type === 'data_request') {
+                        router.push('/messages');
+                      } else {
+                        router.push('/messages');
+                      }
                     }}
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -195,7 +259,7 @@ export default function UserNotificationBadge() {
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-500">
-                        من: {notification.sender.name}
+                        من: {notification.sender?.name || 'المشرف'}
                       </span>
                       <span className="text-xs text-gray-500">
                         {formatDate(notification.created_at)}
