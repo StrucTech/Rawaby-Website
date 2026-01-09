@@ -84,7 +84,8 @@ export async function POST(req: NextRequest) {
 
     // تحقق من رقم الجوال والهوية
     try {
-      const { supabaseAdmin } = await import('@/lib/supabase');
+      const { getSupabaseAdmin } = await import('@/lib/supabase');
+      const supabaseAdmin = getSupabaseAdmin();
       
       const { data: existingPhone } = await supabaseAdmin
         .from('users')
