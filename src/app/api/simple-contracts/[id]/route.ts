@@ -116,41 +116,80 @@ export async function GET(
       error: contractsError?.message 
     });
 
-    // إذا لم تُوجد عقود بالـ order_id، جرب البحث عن عقود العميل (التي لم تُربط بعد)
+    // إذا لم تُوجد عقود بالـ order_id، جرب البحث عن عقود العميل
     let finalContracts = contracts || [];
     if ((!finalContracts || finalContracts.length === 0) && order.client_id) {
-      console.log('No contracts found by order_id, searching for unlinked client contracts...');
+      console.log('No contracts found by order_id, searching by client_id...');
       
-      // البحث عن عقود العميل التي لم تُربط بطلب (order_id = NULL)
       const { data: clientContracts, error: clientContractsError } = await supabaseAdmin
         .from('contracts')
         .select('*')
-        .eq('user_id', order.client_id)
-        .or('order_id.is.null,order_id.eq.' + orderId); // العقود غير المربوطة أو المربوطة بهذا الطلب
+        .eq('user_id', order.client_id);
       
-      console.log('Unlinked client contracts query result:', { 
+      console.log('Client contracts query result:', { 
         count: clientContracts?.length || 0, 
         error: clientContractsError?.message 
       });
       
       if (clientContracts && clientContracts.length > 0) {
-        // ربط العقود غير المربوطة بهذا الطلب تلقائياً
-        const unlinkedContracts = clientContracts.filter((c: any) => !c.order_id);
-        if (unlinkedContracts.length > 0) {
-          console.log('Auto-linking', unlinkedContracts.length, 'unlinked contracts...');
-          const { error: linkError } = await supabaseAdmin
-            .from('contracts')
-            .update({ order_id: orderId })
-            .in('id', unlinkedContracts.map((c: any) => c.id));
-          
-          if (linkError) {
-            console.error('Error auto-linking contracts:', linkError);
-          } else {
-            console.log('Successfully auto-linked contracts to order');
-          }
-        }
-        
         finalContracts = clientContracts;
+      }
+    }
+    
+    // إذا لم نجد عقود في جدول contracts، ابحث في حقل contract_info في جدول المستخدمين
+    if ((!finalContracts || finalContracts.length === 0) && order.client_id) {
+      console.log('No contracts found in contracts table, checking user contract_info...');
+      
+      const { data: userData, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('contract_info')
+        .eq('id', order.client_id)
+        .single();
+      
+      if (!userError && userData?.contract_info) {
+        console.log('Found contract_info in user profile:', userData.contract_info);
+        const contractInfo = typeof userData.contract_info === 'string' 
+          ? JSON.parse(userData.contract_info) 
+          : userData.contract_info;
+        
+        // تحويل contract_info إلى صيغة العقود
+        if (contractInfo.contract1_path || contractInfo.contract2_path) {
+          // إنشاء signed URLs للملفات
+          const bucketName = contractInfo.storage_bucket || 'client-contracts';
+          let contract1Url = null;
+          let contract2Url = null;
+          
+          try {
+            if (contractInfo.contract1_path) {
+              const { data: signed1 } = await supabaseAdmin.storage
+                .from(bucketName)
+                .createSignedUrl(contractInfo.contract1_path, 3600);
+              contract1Url = signed1?.signedUrl;
+            }
+            if (contractInfo.contract2_path) {
+              const { data: signed2 } = await supabaseAdmin.storage
+                .from(bucketName)
+                .createSignedUrl(contractInfo.contract2_path, 3600);
+              contract2Url = signed2?.signedUrl;
+            }
+          } catch (signError) {
+            console.error('Error creating signed URLs from user contract_info:', signError);
+          }
+          
+          finalContracts = [{
+            id: `user_contract_${order.client_id}`,
+            user_id: order.client_id,
+            order_id: orderId,
+            contract1_url: contract1Url,
+            contract2_url: contract2Url,
+            contract1_filename: contractInfo.contract1_filename || 'العقد الأول',
+            contract2_filename: contractInfo.contract2_filename || 'العقد الثاني',
+            status: 'uploaded',
+            created_at: contractInfo.upload_timestamp,
+            source: 'user_profile'
+          }];
+          console.log('Created contract record from user contract_info');
+        }
       }
     }
 
