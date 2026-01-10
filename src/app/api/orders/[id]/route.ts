@@ -42,7 +42,16 @@ export async function GET(
     const { data: order, error } = await supabaseAdmin
       .from('orders')
       .select(`
-        *,
+        id,
+        client_id,
+        assigned_supervisor_id,
+        assigned_delegate_id,
+        status,
+        service_type,
+        metadata,
+        created_at,
+        updated_at,
+        assigned_at,
         client:users!orders_client_id_fkey(id, name, email, phone),
         assigned_supervisor:users!orders_assigned_supervisor_id_fkey(id, name, email),
         assigned_delegate:users!orders_assigned_delegate_id_fkey(id, name, email)
