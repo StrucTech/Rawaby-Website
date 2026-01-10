@@ -34,7 +34,14 @@ export default function OrderDetailsPage() {
           const decoded = jwt_decode(token) as DecodedToken;
           setUserInfo(decoded);
           console.log('Decoded user info:', decoded);
+          console.log('Token parts:', {
+            hasUserId: !!decoded.userId,
+            hasRole: !!decoded.role,
+            role: decoded.role,
+            userId: decoded.userId
+          });
         } catch (error) {
+          console.error('Token decode error:', error);
           setError('رمز المصادقة غير صالح');
           return;
         }
