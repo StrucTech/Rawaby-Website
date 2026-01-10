@@ -12,11 +12,17 @@ export async function GET(req: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     
-    // جلب الإعدادات من قاعدة البيانات
+    // جلب الإعدادات من قاعدة البيانات (مع force refresh)
     const { data: settings, error } = await supabaseAdmin
       .from('site_settings')
       .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .single();
+
+    console.log('Raw settings from database:', settings);
+    console.log('About data from DB:', settings?.about);
+    console.log('Updated at:', settings?.updated_at);
 
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching site settings:', error);
