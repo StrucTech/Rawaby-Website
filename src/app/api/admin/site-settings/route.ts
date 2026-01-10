@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 // =============================================
 // API لإدارة إعدادات الموقع (About & Footer)
@@ -70,14 +72,20 @@ export async function GET(req: NextRequest) {
       }
     };
 
+    const responseData = settings || defaultSettings;
+
     return NextResponse.json({
       success: true,
-      settings: settings || defaultSettings
+      settings: responseData,
+      timestamp: new Date().toISOString(), // لتتبع وقت الاستجابة
+      fromDatabase: !!settings // للتأكد من أن البيانات من قاعدة البيانات
     }, {
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'CDN-Cache-Control': 'no-cache',
+        'Vercel-CDN-Cache-Control': 'no-cache'
       }
     });
 

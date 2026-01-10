@@ -68,24 +68,8 @@ const getServiceIcon = (index: number) => {
 export default function AboutPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aboutSettings, setAboutSettings] = useState<AboutSettings>({
-    heroTitle: 'من نحن',
-    heroSubtitle: 'نسعى لتقديم خدمات تعليمية متميزة للمصريين في المملكة العربية السعودية',
-    missionTitle: 'رسالتنا',
-    missionText: 'نحن نؤمن بأن التعليم هو أساس تقدم المجتمع. نسعى جاهدين لتقديم خدمات تعليمية متميزة تساعد الطلاب المصريين في المملكة العربية السعودية على تحقيق أهدافهم الأكاديمية وتطوير مهاراتهم. نقدم خدماتنا من خلال نخبة من المعلمين المتخصصين باستخدام أحدث الوسائل التعليمية.',
-    servicesTitle: 'خدماتنا',
-    servicesSubtitle: 'نقدم مجموعة متكاملة من الخدمات التعليمية المتميزة',
-    contactTitle: 'تواصل معنا',
-    contactSubtitle: 'نحن هنا لمساعدتك في تحقيق أهدافك التعليمية',
-  });
-  const [footerSettings, setFooterSettings] = useState<FooterSettings>({
-    phone: '+966 50 000 0000',
-    email: 'info@example.com',
-    address: 'الرياض، المملكة العربية السعودية',
-    socialLinks: {
-      whatsapp: 'https://wa.me/966500000000',
-    },
-  });
+  const [aboutSettings, setAboutSettings] = useState<AboutSettings | null>(null);
+  const [footerSettings, setFooterSettings] = useState<FooterSettings | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -113,6 +97,8 @@ export default function AboutPage() {
         const settingsData = await settingsRes.json();
         
         console.log('Fetched settings data:', settingsData);
+        console.log('API timestamp:', settingsData.timestamp);
+        console.log('From database:', settingsData.fromDatabase);
         
         if (servicesData.success && servicesData.services) {
           setServices(servicesData.services);
@@ -138,6 +124,18 @@ export default function AboutPage() {
 
     fetchData();
   }, []);
+
+  // عرض شاشة تحميل حتى يتم جلب البيانات
+  if (loading || !aboutSettings || !footerSettings) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
