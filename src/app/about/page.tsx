@@ -112,16 +112,21 @@ export default function AboutPage() {
         const servicesData = await servicesRes.json();
         const settingsData = await settingsRes.json();
         
+        console.log('Fetched settings data:', settingsData);
+        
         if (servicesData.success && servicesData.services) {
           setServices(servicesData.services);
         }
         
         if (settingsData.success && settingsData.settings) {
           if (settingsData.settings.about) {
-            setAboutSettings(prev => ({ ...prev, ...settingsData.settings.about }));
+            console.log('About settings from API:', settingsData.settings.about);
+            // استبدال كامل للقيم بدلاً من الدمج
+            setAboutSettings(settingsData.settings.about);
           }
           if (settingsData.settings.footer) {
-            setFooterSettings(prev => ({ ...prev, ...settingsData.settings.footer }));
+            console.log('Footer settings from API:', settingsData.settings.footer);
+            setFooterSettings(settingsData.settings.footer);
           }
         }
       } catch (error) {
