@@ -357,6 +357,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     console.log('PUT /api/orders called');
+    const supabaseAdmin = getSupabaseAdmin();
+    
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('No auth header');
