@@ -161,7 +161,7 @@ export default function SupervisorMessagesPage() {
                   }`}
                 >
                   <div className="font-medium">
-                    طلب {order.id.substring(0, 8)}...
+                    طلب {order.id.slice(-8).toUpperCase()}
                   </div>
                   <div className="text-sm text-gray-600">
                     الحالة: {order.status}
@@ -186,7 +186,7 @@ export default function SupervisorMessagesPage() {
               {/* معلومات الطلب */}
               <div className="mb-6 p-4 bg-gray-50 rounded">
                 <h3 className="font-semibold mb-2">
-                  طلب رقم {selectedOrder.id.substring(0, 8)}...
+                  طلب رقم {selectedOrder.id.slice(-8).toUpperCase()}
                 </h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
