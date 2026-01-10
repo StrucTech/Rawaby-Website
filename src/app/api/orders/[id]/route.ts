@@ -58,6 +58,13 @@ export async function GET(
       }, { status: 404 });
     }
 
+    console.log('Raw order data:', {
+      id: order.id,
+      assigned_delegate_id: order.assigned_delegate_id,
+      client_id: order.client_id,
+      hasAssignedDelegate: !!order.assigned_delegate
+    });
+
     // التحقق من صلاحية الوصول للطلب
     const canAccess = 
       payload.role === 'admin' ||
