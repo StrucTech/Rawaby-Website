@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+// تعطيل الـ cache لضمان تحديث البيانات دائماً
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface Service {
   id: string;
   title: string;
@@ -90,10 +94,10 @@ export default function AboutPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // جلب الخدمات والإعدادات معاً
+        // جلب الخدمات والإعدادات معاً (بدون cache لضمان تحديث البيانات)
         const [servicesRes, settingsRes] = await Promise.all([
-          fetch('/api/services'),
-          fetch('/api/admin/site-settings')
+          fetch('/api/services', { cache: 'no-store' }),
+          fetch('/api/admin/site-settings', { cache: 'no-store' })
         ]);
         
         const servicesData = await servicesRes.json();
