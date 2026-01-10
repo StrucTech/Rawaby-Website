@@ -90,11 +90,23 @@ export default function AboutPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // إضافة timestamp لكسر الـ cache وضمان تحديث البيانات
+        // إضافة timestamp و headers لكسر الـ cache وضمان تحديث البيانات دائماً
         const timestamp = new Date().getTime();
         const [servicesRes, settingsRes] = await Promise.all([
-          fetch(`/api/services?t=${timestamp}`),
-          fetch(`/api/admin/site-settings?t=${timestamp}`)
+          fetch(`/api/services?t=${timestamp}`, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          }),
+          fetch(`/api/admin/site-settings?t=${timestamp}`, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          })
         ]);
         
         const servicesData = await servicesRes.json();

@@ -67,6 +67,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       settings: settings || defaultSettings
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error: any) {
