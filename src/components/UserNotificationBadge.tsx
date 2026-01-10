@@ -33,6 +33,7 @@ interface DataRequest {
     id: string;
     name: string;
     email: string;
+    role: string;
   };
 }
 
@@ -83,7 +84,7 @@ export default function UserNotificationBadge() {
               status: 'sent',
               priority: 'high',
               created_at: req.created_at,
-              sender: req.supervisor || { id: '', name: 'المشرف', email: '' },
+              sender: req.supervisor || { id: '', name: 'المشرف', email: '', role: 'supervisor' },
               type: 'data_request',
               order_id: req.order_id
             });
@@ -113,7 +114,7 @@ export default function UserNotificationBadge() {
               status: 'sent',
               priority: 'normal',
               created_at: n.created_at,
-              sender: { id: '', name: 'النظام', email: '' },
+              sender: { id: '', name: 'النظام', email: '', role: 'system' },
               type: n.type
             });
           });

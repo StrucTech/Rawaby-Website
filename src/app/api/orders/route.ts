@@ -450,6 +450,7 @@ export async function PUT(request: NextRequest) {
 
 async function notifySupervisors(order: any, services: any[]) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: supervisors, error } = await supabaseAdmin
       .from('users')
       .select('id, name, email')

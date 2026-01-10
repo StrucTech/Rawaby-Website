@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
 // جلب كل المندوبين المنسوبين لمشرف
 export async function GET(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+    
     // التحقق من التوكن والصلاحيات
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -144,6 +146,8 @@ export async function GET(req: NextRequest) {
 // حذف الربط
 export async function DELETE(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+    
     // التحقق من التوكن والصلاحيات
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
