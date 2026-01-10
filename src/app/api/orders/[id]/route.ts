@@ -47,7 +47,6 @@ export async function GET(
         assigned_supervisor_id,
         assigned_delegate_id,
         status,
-        service_type,
         metadata,
         created_at,
         updated_at,
