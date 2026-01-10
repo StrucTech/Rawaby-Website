@@ -356,8 +356,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    console.log('PUT /api/orders called');
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No auth header');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -366,14 +368,18 @@ export async function PUT(request: NextRequest) {
     
     try {
       payload = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+      console.log('Token verified, user:', payload.userId, 'role:', payload.role);
     } catch (error) {
+      console.error('Token verification failed:', error);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const body = await request.json();
+    console.log('Request body:', body);
     const { orderId, assigned_supervisor_id, assigned_delegate_id, status, note } = body;
 
     if (!orderId) {
+      console.log('No orderId provided');
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
     }
 
@@ -400,6 +406,8 @@ export async function PUT(request: NextRequest) {
     
     updateData.updated_at = new Date().toISOString();
 
+    console.log('Update data:', updateData);
+
     const { data: order, error } = await supabaseAdmin
       .from('orders')
       .update(updateData)
@@ -409,9 +417,10 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Error updating order:', error);
-      return NextResponse.json({ error: 'Error updating order' }, { status: 500 });
+      return NextResponse.json({ error: 'Error updating order', details: error.message }, { status: 500 });
     }
 
+    console.log('Order updated successfully:', order.id);
     return NextResponse.json({
       message: 'Order updated successfully',
       order
@@ -419,7 +428,7 @@ export async function PUT(request: NextRequest) {
 
   } catch (error: any) {
     console.error('PUT orders error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Server error', details: error.message }, { status: 500 });
   }
 }
 
