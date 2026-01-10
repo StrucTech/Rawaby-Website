@@ -139,21 +139,21 @@ const ServicesPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900">
             خدماتنا التعليمية
           </h1>
-          <p className="mt-4 text-xl text-gray-600">
+          <p className="mt-3 sm:mt-4 text-lg sm:text-xl text-gray-600 px-2">
             مجموعة متكاملة من الخدمات التعليمية المتميزة
           </p>
           
           {/* رسالة إعلامية عند مسح السلة القديمة */}
           {cartCleared && (
-            <div className="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mx-auto max-w-md">
-              <p className="text-sm">
+            <div className="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-3 sm:px-4 py-3 rounded mx-auto max-w-md">
+              <p className="text-xs sm:text-sm">
                 تم تحديث النظام. تم مسح السلة السابقة - يرجى إضافة الخدمات مرة أخرى.
               </p>
             </div>
@@ -161,9 +161,9 @@ const ServicesPage: React.FC = () => {
         </div>
 
         {/* Organizational Notes */}
-        <div className="mb-8 bg-blue-50 border-r-4 border-blue-600 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">ملاحظات تنظيمية</h3>
-          <ul className="space-y-2 text-blue-800">
+        <div className="mb-6 sm:mb-8 bg-blue-50 border-r-4 border-blue-600 rounded-lg p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-2 sm:mb-3">ملاحظات تنظيمية</h3>
+          <ul className="space-y-2 text-sm sm:text-base text-blue-800">
             <li className="flex items-start">
               <span className="ml-3 text-blue-600 font-bold">•</span>
               <span>لا يتم إدراج تصديق الشهادات كخدمة أساسية إلا عند الطلب فقط</span>
@@ -184,31 +184,40 @@ const ServicesPage: React.FC = () => {
         </div>
 
         {/* Services Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {services.map((service) => (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 pb-24">
+          {loadingServices ? (
+            <div className="col-span-full flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          ) : services.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-gray-500 text-lg">لا توجد خدمات متاحة حالياً</p>
+            </div>
+          ) : (
+            services.map((service) => (
             <div
               key={service.id}
               className="bg-white rounded-lg shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-xl"
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              <div className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+                  <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs sm:text-sm font-medium bg-blue-100 text-blue-800">
                     {service.category}
                   </span>
-                  <span className="text-2xl font-bold text-gray-900">
+                  <span className="text-xl sm:text-2xl font-bold text-gray-900">
                     {service.price} جنيه مصري
                   </span>
                 </div>
                 
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
                   {service.title}
                 </h3>
                 
-                <p className="text-gray-600 mb-4">
+                <p className="text-sm sm:text-base text-gray-600 mb-4">
                   {service.description}
                 </p>
                 
-                <div className="flex items-center text-gray-500 mb-4">
+                <div className="flex items-center text-gray-500 mb-4 text-sm sm:text-base">
                   <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -227,20 +236,20 @@ const ServicesPage: React.FC = () => {
                 </button>
               </div>
             </div>
-          ))}
+          )))}
         </div>
 
-        {/* Cart Summary */}
+        {/* Cart Summary - Fixed at bottom with proper mobile padding */}
         {cart.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4">
-            <div className="max-w-7xl mx-auto flex justify-between items-center">
-              <div className="text-gray-600">
-                عدد الخدمات المختارة: {cart.length}
+          <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4 z-50 border-t border-gray-200">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
+              <div className="text-gray-600 text-center sm:text-right">
+                عدد الخدمات المختارة: <span className="font-bold text-gray-900">{cart.length}</span>
               </div>
               <button
                 onClick={handleContinueOrder}
                 disabled={isLoading}
-                className={`bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors duration-200 ${
+                className={`w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition-colors duration-200 font-medium ${
                   isLoading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >

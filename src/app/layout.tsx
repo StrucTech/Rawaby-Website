@@ -15,6 +15,12 @@ const cairo = Cairo({
 export const metadata: Metadata = {
   title: "خدمات تعليمية",
   description: "خدمات تعليمية للمصريين في المملكة العربية السعودية",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+  },
 };
 
 export default function RootLayout({
