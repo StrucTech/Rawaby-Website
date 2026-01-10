@@ -774,7 +774,9 @@ export default function TasksManagement() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2">{order.service_name || 'غير محدد'}</td>
+                        <td className="px-4 py-2">
+                          {order.metadata?.serviceName || order.service_name || 'غير محدد'}
+                        </td>
                         <td className="px-4 py-2">{order.guardianName}</td>
                         <td className="px-4 py-2">
                           <div>
