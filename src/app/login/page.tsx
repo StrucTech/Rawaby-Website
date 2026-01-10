@@ -85,8 +85,7 @@ function LoginForm() {
         throw new Error(data.message || 'حدث خطأ في تسجيل الدخول');
       }
 
-      // Store token in cookies
-      Cookies.set('token', data.token, { expires: 7, path: '/' }); // Expires in 7 days
+      // التوكن يتم تعيينه تلقائياً كـ cookie من الخادم (مع حماية SameSite)
 
       // Show welcome message with user's name from the response
       setUserName(data.user.name);

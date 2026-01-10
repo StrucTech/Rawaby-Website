@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { UserModel } from '@/models/UserSupabase';
 import { sendVerificationEmail } from '@/lib/mailer';
 import jwt, { Secret } from 'jsonwebtoken';
+import { checkRateLimit, getClientIP, createRateLimitKey, rateLimitConfigs } from '@/lib/rateLimit';
+import { sanitizeForDatabase, isValidEmail, isValidPhone } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,8 +46,41 @@ const validatePasswordStrength = (password: string): { valid: boolean; message?:
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate Limiting
+    const clientIP = getClientIP(req);
+    const rateLimitKey = createRateLimitKey(clientIP, 'register');
+    const rateLimitResult = checkRateLimit(rateLimitKey, rateLimitConfigs.register);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000))
+          }
+        }
+      );
+    }
+
     const body = await req.json();
     const { name, email, phone, nationalId, password } = body;
+
+    // تنظيف المدخلات
+    const sanitizedName = sanitizeForDatabase(name || '');
+    const sanitizedEmail = sanitizeForDatabase(email?.toLowerCase()?.trim() || '');
+    const sanitizedPhone = sanitizeForDatabase(phone || '');
+    const sanitizedNationalId = sanitizeForDatabase(nationalId || '');
+
+    // التحقق من صحة البريد الإلكتروني
+    if (!isValidEmail(sanitizedEmail)) {
+      return NextResponse.json({ error: 'البريد الإلكتروني غير صحيح' }, { status: 400 });
+    }
+
+    // التحقق من صحة رقم الهاتف
+    if (sanitizedPhone && !isValidPhone(sanitizedPhone)) {
+      return NextResponse.json({ error: 'رقم الهاتف غير صحيح' }, { status: 400 });
+    }
 
     // تحقق من الحقول المطلوبة
     if (!name || !email || !phone || !nationalId || !password) {

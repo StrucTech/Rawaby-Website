@@ -1,6 +1,8 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
+import { checkRateLimit, getClientIP, createRateLimitKey, rateLimitConfigs } from '@/lib/rateLimit';
+import { sanitizeForDatabase, isValidUUID } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,6 +164,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate Limiting
+    const clientIP = getClientIP(request);
+    const rateLimitKey = createRateLimitKey(clientIP, 'orders');
+    const rateLimitResult = checkRateLimit(rateLimitKey, rateLimitConfigs.orders);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { status: 429 }
+      );
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
     
     console.log('=== POST /api/orders - Starting ===');

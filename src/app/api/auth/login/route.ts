@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserModel } from '@/models/UserSupabase';
 import jwt, { Secret } from 'jsonwebtoken';
+import { checkRateLimit, getClientIP, createRateLimitKey, rateLimitConfigs, clearRateLimit } from '@/lib/rateLimit';
+import { sanitizeForDatabase, isValidEmail } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +11,39 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is not set');
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate Limiting
+    const clientIP = getClientIP(req);
+    const rateLimitKey = createRateLimitKey(clientIP, 'login');
+    const rateLimitResult = checkRateLimit(rateLimitKey, rateLimitConfigs.login);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+            'X-RateLimit-Remaining': '0'
+          }
+        }
+      );
+    }
+
     const body = await req.json();
     const { email, password } = body;
 
-    if (!email || !password) {
+    // تنظيف والتحقق من المدخلات
+    const sanitizedEmail = sanitizeForDatabase(email?.toLowerCase()?.trim() || '');
+    
+    if (!sanitizedEmail || !password) {
       return NextResponse.json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبان' }, { status: 400 });
     }
 
-    const user = await UserModel.findByEmail(email);
+    if (!isValidEmail(sanitizedEmail)) {
+      return NextResponse.json({ error: 'البريد الإلكتروني غير صحيح' }, { status: 400 });
+    }
+
+    const user = await UserModel.findByEmail(sanitizedEmail);
     if (!user) {
       return NextResponse.json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, { status: 401 });
     }
@@ -38,6 +65,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, { status: 401 });
     }
 
+    // مسح rate limit بعد تسجيل الدخول الناجح
+    clearRateLimit(rateLimitKey);
+
     const token = jwt.sign({ 
       userId: user.id, 
       email: user.email, 
@@ -52,11 +82,25 @@ export async function POST(req: NextRequest) {
       role: user.role 
     };
     
-    return NextResponse.json({ 
+    // إنشاء Response مع Cookie
+    const response = NextResponse.json({ 
       message: 'تم تسجيل الدخول بنجاح', 
       user: userResponse, 
-      token 
+      token
     });
+
+    // تعيين Cookie من جهة الخادم مع حماية SameSite
+    // ملاحظة: نستخدم httpOnly: false لأن التطبيق يحتاج قراءة التوكن من JavaScript
+    // الحماية تتم عبر SameSite: strict و secure في Production
+    response.cookies.set('token', token, {
+      httpOnly: false, // يجب أن يكون false لأن الكود يقرأ الـ cookie من JavaScript
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict', // حماية من CSRF
+      maxAge: 7 * 24 * 60 * 60, // 7 أيام بالثواني
+      path: '/'
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Login error:', error);
     

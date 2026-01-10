@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
+import { validateFile, checkForMaliciousContent, generateSafeFileName, FILE_SIZE_LIMITS } from '@/lib/fileValidation';
+import { checkRateLimit, getClientIP, createRateLimitKey, rateLimitConfigs } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +14,18 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate Limiting
+    const clientIP = getClientIP(req);
+    const rateLimitKey = createRateLimitKey(clientIP, 'upload-contracts');
+    const rateLimitResult = checkRateLimit(rateLimitKey, rateLimitConfigs.upload);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.message },
+        { status: 429 }
+      );
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
     // التحقق من المصادقة
     const authHeader = req.headers.get('authorization');
@@ -40,27 +54,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'يجب رفع كلا الملفين' }, { status: 400 });
     }
 
-    // التحقق من نوع الملفات
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-      'image/jpg'
-    ];
+    // التحقق الشامل من الملفات باستخدام المكتبة الجديدة
+    const validation1 = await validateFile(contract1, {
+      allowedTypes: 'all',
+      maxSize: FILE_SIZE_LIMITS.contract,
+      fileName: contract1.name
+    });
 
-    if (!allowedTypes.includes(contract1.type) || !allowedTypes.includes(contract2.type)) {
+    const validation2 = await validateFile(contract2, {
+      allowedTypes: 'all',
+      maxSize: FILE_SIZE_LIMITS.contract,
+      fileName: contract2.name
+    });
+
+    if (!validation1.valid) {
       return NextResponse.json({ 
-        error: 'نوع الملف غير مدعوم. يرجى رفع ملفات PDF أو Word أو صور' 
+        error: `الملف الأول: ${validation1.error}` 
       }, { status: 400 });
     }
 
-    // التحقق من حجم الملفات (10MB max)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (contract1.size > maxSize || contract2.size > maxSize) {
+    if (!validation2.valid) {
       return NextResponse.json({ 
-        error: 'حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت' 
+        error: `الملف الثاني: ${validation2.error}` 
+      }, { status: 400 });
+    }
+
+    // فحص المحتوى الضار
+    const isSafe1 = await checkForMaliciousContent(contract1);
+    const isSafe2 = await checkForMaliciousContent(contract2);
+
+    if (!isSafe1 || !isSafe2) {
+      return NextResponse.json({ 
+        error: 'تم اكتشاف محتوى غير آمن في الملف' 
       }, { status: 400 });
     }
 
