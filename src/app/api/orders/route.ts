@@ -198,54 +198,38 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { serviceIds, paymentMethod, totalAmount, guardianData, studentData } = body;
-    
-    console.log('Request body:', { serviceIds, paymentMethod, totalAmount, guardianData, studentData });
+    const { serviceIds, paymentMethod, guardianData, studentData } = body;
 
     if (!serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0) {
-      console.log('Invalid serviceIds');
       return NextResponse.json({ error: 'At least one service must be selected' }, { status: 400 });
     }
 
-    // محاولة جلب الخدمات من قاعدة البيانات أولاً، وإلا استخدام البيانات الوهمية
-    let services;
-    try {
-      console.log('Attempting to fetch services from database...');
-      const { data: dbServices, error: servicesError } = await supabaseAdmin
-        .from('services')
-        .select('*')
-        .in('id', serviceIds);
+    // السعر يُحسب من قاعدة البيانات فقط - لا نثق في أي سعر قادم من المتصفح
+    const uniqueServiceIds = Array.from(new Set(serviceIds.map((id: any) => String(id))));
+    const { data: services, error: servicesError } = await supabaseAdmin
+      .from('services')
+      .select('*')
+      .in('id', uniqueServiceIds);
 
-      if (servicesError) {
-        console.log('Database services fetch failed, using mock data:', servicesError);
-        services = serviceIds.map((id: any) => ({
-          id: id,
-          title: `Service ${id}`,
-          price: totalAmount / serviceIds.length,
-          description: `Description for service ${id}`
-        }));
-      } else {
-        console.log('Services fetched from database:', dbServices);
-        services = dbServices || [];
-      }
-    } catch (error) {
-      console.log('Error fetching services, using mock data:', error);
-      services = serviceIds.map((id: any) => ({
-        id: id,
-        title: `Service ${id}`,
-        price: totalAmount / serviceIds.length,
-        description: `Description for service ${id}`
-      }));
+    if (servicesError) {
+      console.error('Error fetching services:', servicesError);
+      return NextResponse.json({ error: 'Failed to load services' }, { status: 500 });
     }
+
+    if (!services || services.length !== uniqueServiceIds.length) {
+      return NextResponse.json({ error: 'One or more services are invalid' }, { status: 400 });
+    }
+
+    const totalPrice = services.reduce((sum: number, service: any) => sum + Number(service.price || 0), 0);
 
     // إعداد البيانات للهيكل الجديد
     console.log('Preparing order data for new schema...');
     
     const orderData = {
       client_id: payload.userId, // UUID مباشرة
-      service_ids: serviceIds, // مصفوفة UUID
+      service_ids: uniqueServiceIds, // مصفوفة UUID
       status: 'new',
-      total_price: parseFloat(totalAmount),
+      total_price: totalPrice,
       payment_method: paymentMethod,
       metadata: {
         // بيانات الدفع
@@ -282,7 +266,6 @@ export async function POST(request: NextRequest) {
     let finalOrder;
     try {
       console.log('Saving order to database with new schema...');
-      console.log('Order data:', orderData);
       
       const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
@@ -324,18 +307,9 @@ export async function POST(request: NextRequest) {
       console.error('Error saving order to database:', error);
       return NextResponse.json({
         error: 'Failed to create order',
-        details: error.message,
-        received_data: {
-          serviceIds,
-          paymentMethod,
-          totalAmount,
-          hasGuardianData: !!guardianData,
-          hasStudentData: !!studentData
-        }
       }, { status: 500 });
     }
 
-    console.log('Final order data:', finalOrder);
 
     // إشعار المشرفين بالطلب الجديد
     try {
