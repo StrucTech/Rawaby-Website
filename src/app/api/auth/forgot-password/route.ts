@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { sendPasswordResetEmail } from '@/lib/mailer';
+import { getClientIP } from '@/lib/rateLimit';
+import { isThrottled, recordAttempt } from '@/lib/authThrottle';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +12,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET as string;
+
+const RESET_WINDOW_MS = 60 * 60 * 1000;
+const MAX_RESETS_PER_EMAIL = 3;
+const MAX_RESETS_PER_IP = 10;
 
 export async function POST(request: Request) {
   try {
@@ -23,11 +29,26 @@ export async function POST(request: Request) {
       );
     }
 
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const emailKey = `reset:email:${normalizedEmail}`;
+    const ipKey = `reset:ip:${getClientIP(request)}`;
+
+    if (await isThrottled([
+      { key: emailKey, max: MAX_RESETS_PER_EMAIL, windowMs: RESET_WINDOW_MS },
+      { key: ipKey, max: MAX_RESETS_PER_IP, windowMs: RESET_WINDOW_MS },
+    ])) {
+      return NextResponse.json(
+        { message: 'تم تجاوز الحد الأقصى لطلبات استعادة كلمة المرور. يرجى المحاولة بعد ساعة.' },
+        { status: 429 }
+      );
+    }
+    await recordAttempt([emailKey, ipKey]);
+
     // البحث عن المستخدم في قاعدة البيانات
     const { data: user, error } = await supabase
       .from('users')
       .select('id, email, name, role')
-      .eq('email', email.toLowerCase())
+      .eq('email', normalizedEmail)
       .single();
 
     // حتى لو لم يكن المستخدم موجود، نرسل رسالة نجاح لمنع اكتشاف البريد الإلكتروني
@@ -46,7 +67,7 @@ export async function POST(request: Request) {
     );
 
     // إرسال البريد الإلكتروني
-    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin}/reset-password?token=${resetToken}`;
     
     await sendPasswordResetEmail(user.email, user.name, resetLink);
 

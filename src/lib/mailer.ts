@@ -277,25 +277,6 @@ export async function sendVerificationEmail(to: string, token: string) {
   await transporter.sendMail(mailOptions);
 }
 
-// دالة إرسال روابط العقود
-export async function sendMailWithDriveLinks(to: string, { studentName, guardianName, contract1, contract2 }: { studentName: string, guardianName: string, contract1: string, contract2: string }) {
-  const html = `
-    <p>عزيزي ${studentName}،</p>
-    <p>يرجى تحميل وتعبئة العقود التالية:</p>
-    <ul>
-      <li><a href="${contract1}">عقد خدمات استشارية</a></li>
-      <li><a href="${contract2}">توكيل خاص</a></li>
-    </ul>
-    <p>بعد تعبئة العقود، يرجى رفعهما من خلال الموقع.</p>
-  `;
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to,
-    subject: 'روابط العقود المطلوبة',
-    html
-  });
-}
-
 // دالة إرسال بريد إعادة تعيين كلمة المرور
 export async function sendPasswordResetEmail(to: string, name: string, resetLink: string) {
   const html = `

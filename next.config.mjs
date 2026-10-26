@@ -16,6 +16,15 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
 
+  // حذف console.log/info/debug من نسخة الإنتاج لأنها كانت تطبع بيانات شخصية
+  // (الرقم القومي، بيانات الطالب، ...) في سجلات السيرفر والمتصفح.
+  // console.error و console.warn تبقى لمتابعة الأخطاء.
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production'
+      ? { exclude: ['error', 'warn'] }
+      : false,
+  },
+
   // Security Headers
   async headers() {
     return [

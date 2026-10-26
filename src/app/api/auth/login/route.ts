@@ -3,11 +3,17 @@ import { UserModel } from '@/models/UserSupabase';
 import jwt, { Secret } from 'jsonwebtoken';
 import { checkRateLimit, getClientIP, createRateLimitKey, rateLimitConfigs, clearRateLimit } from '@/lib/rateLimit';
 import { sanitizeForDatabase, isValidEmail } from '@/lib/sanitize';
+import { isThrottled, recordAttempt, clearAttempts } from '@/lib/authThrottle';
 
 export const dynamic = 'force-dynamic';
 
 const JWT_SECRET = process.env.JWT_SECRET as Secret;
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is not set');
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILURES_PER_EMAIL = 10;
+const MAX_FAILURES_PER_IP = 30;
+const TOO_MANY_ATTEMPTS_MESSAGE = 'تم تجاوز الحد الأقصى لمحاولات تسجيل الدخول. يرجى المحاولة بعد 15 دقيقة.';
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,8 +49,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'البريد الإلكتروني غير صحيح' }, { status: 400 });
     }
 
+    const emailKey = `login:email:${sanitizedEmail}`;
+    const ipKey = `login:ip:${clientIP}`;
+
+    if (await isThrottled([
+      { key: emailKey, max: MAX_FAILURES_PER_EMAIL, windowMs: LOGIN_WINDOW_MS },
+      { key: ipKey, max: MAX_FAILURES_PER_IP, windowMs: LOGIN_WINDOW_MS },
+    ])) {
+      return NextResponse.json(
+        { error: TOO_MANY_ATTEMPTS_MESSAGE },
+        { status: 429, headers: { 'Retry-After': String(LOGIN_WINDOW_MS / 1000) } }
+      );
+    }
+
     const user = await UserModel.findByEmail(sanitizedEmail);
     if (!user) {
+      await recordAttempt([emailKey, ipKey]);
       return NextResponse.json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, { status: 401 });
     }
 
@@ -62,11 +82,13 @@ export async function POST(req: NextRequest) {
 
     const isMatch = await UserModel.comparePassword(password, user.password);
     if (!isMatch) {
+      await recordAttempt([emailKey, ipKey]);
       return NextResponse.json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' }, { status: 401 });
     }
 
     // مسح rate limit بعد تسجيل الدخول الناجح
     clearRateLimit(rateLimitKey);
+    await clearAttempts(emailKey);
 
     const token = jwt.sign({ 
       userId: user.id, 
@@ -111,12 +133,6 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
     
-    // Return detailed error for debugging
-    const errorMessage = error.message || 'حدث خطأ أثناء تسجيل الدخول';
-    const errorDetails = process.env.NODE_ENV === 'production'
-      ? { error: errorMessage, details: error.toString(), stack: error.stack }
-      : { error: 'حدث خطأ أثناء تسجيل الدخول' };
-    
-    return NextResponse.json(errorDetails, { status: 500 });
+    return NextResponse.json({ error: 'حدث خطأ أثناء تسجيل الدخول' }, { status: 500 });
   }
 } 
